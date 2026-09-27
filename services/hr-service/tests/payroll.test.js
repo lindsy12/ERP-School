@@ -1,6 +1,6 @@
 const request = require('supertest');
 const app = require('../src/app');
-const { resetDb, adminToken, staffToken } = require('./helpers');
+const { resetDb, adminToken, staffToken, TENANT_ID } = require('./helpers');
 const { Employee } = require('../src/models');
 const { calculateCnpsEmployee, calculateIRPP } = require('../src/services/payroll.service');
 
@@ -8,6 +8,7 @@ beforeEach(resetDb);
 
 async function makeEmployee(overrides = {}) {
   return Employee.create({
+    tenantId: TENANT_ID,
     matricule: 'EMP2025-001',
     firstName: 'Paul',
     lastName: 'Biya-Junior',
@@ -70,30 +71,34 @@ describe('Payroll generation and lifecycle', () => {
     const employee = await makeEmployee();
     const generated = await request(app).post('/api/v1/hr/payroll/generate').set('Authorization', `Bearer ${adminToken()}`).send({ month: 9, year: 2026 });
     const item = generated.body.items[0];
+    const token = await staffToken(employee.id);
 
     const tooEarly = await request(app)
       .get(`/api/v1/hr/payroll/payslip/${item.id}`)
-      .set('Authorization', `Bearer ${staffToken(employee.id)}`);
+      .set('Authorization', `Bearer ${token}`);
     expect(tooEarly.status).toBe(403);
 
     await request(app).put(`/api/v1/hr/payroll/${generated.body.payroll.id}/pay`).set('Authorization', `Bearer ${adminToken()}`);
 
     const afterPaid = await request(app)
       .get(`/api/v1/hr/payroll/payslip/${item.id}`)
-      .set('Authorization', `Bearer ${staffToken(employee.id)}`);
+      .set('Authorization', `Bearer ${token}`);
     expect(afterPaid.status).toBe(200);
     expect(afterPaid.headers['content-type']).toMatch(/application\/pdf/);
   });
 
   test('a different employee cannot download someone else\'s payslip', async () => {
-    const employee = await makeEmployee();
+    await makeEmployee();
+    const other = await makeEmployee({ email: 'other.person@example.com', matricule: 'EMP2025-003' });
     const generated = await request(app).post('/api/v1/hr/payroll/generate').set('Authorization', `Bearer ${adminToken()}`).send({ month: 9, year: 2026 });
     await request(app).put(`/api/v1/hr/payroll/${generated.body.payroll.id}/pay`).set('Authorization', `Bearer ${adminToken()}`);
 
-    const item = generated.body.items[0];
+    // Both employees are active, so both get a payroll item — pick the one that
+    // is NOT other's own, regardless of the (unordered) array position.
+    const item = generated.body.items.find((i) => i.employeeId !== other.id);
     const res = await request(app)
       .get(`/api/v1/hr/payroll/payslip/${item.id}`)
-      .set('Authorization', `Bearer ${staffToken(employee.id + 999)}`);
+      .set('Authorization', `Bearer ${await staffToken(other.id)}`);
     expect(res.status).toBe(403);
   });
 

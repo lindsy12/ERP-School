@@ -3,7 +3,11 @@
 **Owner:** Person C
 
 Owns: employee management (recruitment, payroll, attendance), leave tracking, performance tracking,
-asset/inventory management. Payroll accounts for CNPS contribution and PAYE tax bracket.
+asset/inventory management. Payroll accounts for CNPS contribution and PAYE tax bracket. Ships its
+own frontend in `client/` (plain HTML/CSS/JS, no build step).
+
+Multi-tenant: every table is scoped by `tenantId` (the school), taken from the gateway's
+`x-tenant-id` header (or a dev JWT's `tenant_id` claim) — see `docs/api-contracts/hr-service.md`.
 
 ## Publishes (RabbitMQ)
 - `hr.leave.approved` — consumed by Notifications.
@@ -18,6 +22,21 @@ asset/inventory management. Payroll accounts for CNPS contribution and PAYE tax 
 2. `npm install`
 3. Start the DB: `docker compose up -d hr-db rabbitmq` (from the repo root).
 4. `npm run dev` — listens on `PORT` (default 4004).
+
+## Running the UI without the gateway or auth-service
+
+For working on hr-service in isolation (or demoing just this module):
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.hr-dev.yml up -d --build
+docker compose exec hr-service node scripts/seed-demo.js     # demo employees/attendance/leave/assets
+docker compose exec hr-service node scripts/dev-token.js ADMIN
+```
+
+Open `http://localhost:4004/hr/`, paste the token under "Use an access token instead". The
+`docker-compose.hr-dev.yml` overlay is what publishes hr-service's port to the host — the base
+`docker-compose.yml` never does, since only the gateway is meant to be reachable from outside
+Docker (see `docs/gateway.md`). `scripts/dev-token.js` refuses to run with `NODE_ENV=production`.
 
 ## Running tests
 Tests run against a **real MySQL** instance (not an in-memory fake) — this needs
@@ -40,4 +59,5 @@ CI (`.github/workflows/ci.yml`) runs the same tests against a throwaway MySQL se
 container, so no local setup is required for pushes/PRs to pass.
 
 ## Endpoints
-See `docs/api-contracts/hr-service.md` for the full REST contract (base path `/api/v1/hr`).
+See `docs/api-contracts/hr-service.md` for the full REST contract (base path `/api/v1/hr`), including
+auth (gateway headers vs. dev JWT), error format, and every event payload.

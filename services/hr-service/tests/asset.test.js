@@ -1,6 +1,6 @@
 const request = require('supertest');
 const app = require('../src/app');
-const { resetDb, adminToken, staffToken } = require('./helpers');
+const { resetDb, adminToken, roleToken } = require('./helpers');
 
 beforeEach(resetDb);
 
@@ -10,7 +10,7 @@ describe('Asset/inventory management', () => {
   test('rejects non-managers from creating assets', async () => {
     const res = await request(app)
       .post('/api/v1/hr/assets')
-      .set('Authorization', `Bearer ${staffToken(1)}`)
+      .set('Authorization', `Bearer ${roleToken('STAFF')}`)
       .send(validAsset);
     expect(res.status).toBe(403);
   });
@@ -24,7 +24,7 @@ describe('Asset/inventory management', () => {
 
     const list = await request(app)
       .get('/api/v1/hr/assets')
-      .set('Authorization', `Bearer ${staffToken(1)}`);
+      .set('Authorization', `Bearer ${roleToken('STAFF')}`);
     expect(list.status).toBe(200);
     expect(list.body).toHaveLength(1);
 

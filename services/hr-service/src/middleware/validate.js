@@ -1,11 +1,14 @@
+const HttpError = require('../utils/httpError');
+
 // Wraps a Joi schema into Express middleware. Validates the given request
-// property ('body' | 'query' | 'params') and returns 400 with the readable
-// Joi message on failure instead of letting bad input reach a controller.
+// property ('body' | 'query' | 'params') and throws VALIDATION_ERROR with a
+// per-field details array — see CLAUDE.md's "HTTP conventions".
 function validate(schema, property = 'body') {
   return (req, res, next) => {
     const { error, value } = schema.validate(req[property], { abortEarly: false, stripUnknown: true });
     if (error) {
-      return res.status(400).json({ error: error.details.map((d) => d.message).join(', ') });
+      const details = error.details.map((d) => ({ field: d.path.join('.'), message: d.message }));
+      return next(new HttpError(400, 'VALIDATION_ERROR', 'Request is invalid', details));
     }
     req[property] = value;
     return next();

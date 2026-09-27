@@ -9,7 +9,8 @@ const createEmployeeSchema = Joi.object({
   role: Joi.string().min(1).max(100).required(),
   hireDate: Joi.date().iso().required(),
   baseSalary: Joi.number().min(0).required(),
-  userId: Joi.number().integer().positive().allow(null),
+  // auth-service's users.id (UUID) — links this employee to their login account.
+  userId: Joi.string().guid().allow(null),
 });
 
 const updateEmployeeSchema = Joi.object({
@@ -22,7 +23,7 @@ const updateEmployeeSchema = Joi.object({
   hireDate: Joi.date().iso(),
   baseSalary: Joi.number().min(0),
   status: Joi.string().valid('active', 'inactive'),
-  userId: Joi.number().integer().positive().allow(null),
+  userId: Joi.string().guid().allow(null),
 }).min(1);
 
 const listEmployeesQuerySchema = Joi.object({

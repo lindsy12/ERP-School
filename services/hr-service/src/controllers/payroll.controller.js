@@ -3,27 +3,34 @@ const { computePayrollItem, round2 } = require('../services/payroll.service');
 const { streamPayslip } = require('../services/payslip.service');
 const { publish } = require('../config/rabbitmq');
 const { HR_MANAGER_ROLES } = require('../middleware/auth');
+const HttpError = require('../utils/httpError');
+
+function sameTenant(record, req) {
+  return record && record.tenantId === req.user.tenantId;
+}
 
 async function generatePayroll(req, res, next) {
   try {
+    const { tenantId } = req.user;
     const { month, year } = req.body;
 
-    const existing = await Payroll.findOne({ where: { month, year } });
+    const existing = await Payroll.findOne({ where: { tenantId, month, year } });
     if (existing) {
-      return res.status(409).json({ error: `Payroll for ${month}/${year} already exists` });
+      return next(new HttpError(409, 'CONFLICT', `Payroll for ${month}/${year} already exists`));
     }
 
     // NOTE: none of our leave types (annual/sick/maternity/paternity) are
     // configured as unpaid (see payrollConfig.unpaidLeaveTypes), so every
     // active employee is included. Extending that config list is enough to
     // change this behaviour later without touching this loop.
-    const employees = await Employee.findAll({ where: { status: 'active' } });
+    const employees = await Employee.findAll({ where: { tenantId, status: 'active' } });
 
-    const payroll = await Payroll.create({ month, year, status: 'draft' });
+    const payroll = await Payroll.create({ tenantId, month, year, status: 'draft' });
 
     const items = await Promise.all(employees.map((employee) => {
       const computed = computePayrollItem(Number(employee.baseSalary));
       return PayrollItem.create({
+        tenantId,
         payrollId: payroll.id,
         employeeId: employee.id,
         ...computed,
@@ -39,12 +46,12 @@ async function generatePayroll(req, res, next) {
 async function getPayroll(req, res, next) {
   try {
     const { month, year } = req.query;
-    const where = {};
+    const where = { tenantId: req.user.tenantId };
     if (month) where.month = Number(month);
     if (year) where.year = Number(year);
 
     const payroll = await Payroll.findOne({ where });
-    if (!payroll) return res.status(404).json({ error: 'Payroll not found for that period' });
+    if (!payroll) return next(new HttpError(404, 'NOT_FOUND', 'Payroll not found for that period'));
 
     const items = await PayrollItem.findAll({
       where: { payrollId: payroll.id },
@@ -60,9 +67,9 @@ async function getPayroll(req, res, next) {
 async function updatePayrollItem(req, res, next) {
   try {
     const item = await PayrollItem.findByPk(req.params.itemId, { include: [Payroll] });
-    if (!item) return res.status(404).json({ error: 'Payroll item not found' });
+    if (!sameTenant(item, req)) return next(new HttpError(404, 'NOT_FOUND', 'Payroll item not found'));
     if (item.Payroll.status !== 'draft') {
-      return res.status(409).json({ error: 'Payroll is already paid and locked for edits' });
+      return next(new HttpError(409, 'CONFLICT', 'Payroll is already paid and locked for edits'));
     }
 
     const bonus = req.body.bonus ?? item.bonus;
@@ -79,13 +86,14 @@ async function updatePayrollItem(req, res, next) {
 async function payPayroll(req, res, next) {
   try {
     const payroll = await Payroll.findByPk(req.params.id, { include: [{ model: PayrollItem, as: 'items' }] });
-    if (!payroll) return res.status(404).json({ error: 'Payroll not found' });
-    if (payroll.status === 'paid') return res.status(409).json({ error: 'Payroll already marked as paid' });
+    if (!sameTenant(payroll, req)) return next(new HttpError(404, 'NOT_FOUND', 'Payroll not found'));
+    if (payroll.status === 'paid') return next(new HttpError(409, 'CONFLICT', 'Payroll already marked as paid'));
 
     await payroll.update({ status: 'paid', paidAt: new Date() });
 
     const totalNet = payroll.items.reduce((sum, item) => sum + Number(item.net), 0);
     publish('hr.payroll.processed', {
+      tenantId: payroll.tenantId,
       payrollId: payroll.id,
       month: payroll.month,
       year: payroll.year,
@@ -102,9 +110,9 @@ async function payPayroll(req, res, next) {
 // Paid payslips for the caller, newest first — lets an employee find their payroll item ids.
 async function myPayslips(req, res, next) {
   try {
-    if (!req.user.employeeId) return res.status(404).json({ error: 'No employee record linked to your account' });
+    if (!req.user.employeeId) return next(new HttpError(404, 'NOT_FOUND', 'No employee record linked to your account'));
     const items = await PayrollItem.findAll({
-      where: { employeeId: req.user.employeeId },
+      where: { employeeId: req.user.employeeId, tenantId: req.user.tenantId },
       include: [{ model: Payroll, where: { status: 'paid' } }],
     });
     const payslips = items
@@ -121,14 +129,14 @@ async function getPayslip(req, res, next) {
     const item = await PayrollItem.findByPk(req.params.itemId, {
       include: [Payroll, Employee],
     });
-    if (!item) return res.status(404).json({ error: 'Payslip not found' });
+    if (!sameTenant(item, req)) return next(new HttpError(404, 'NOT_FOUND', 'Payslip not found'));
 
     const isManager = HR_MANAGER_ROLES.includes(req.user.role);
     const isOwner = req.user.employeeId && Number(req.user.employeeId) === item.employeeId;
-    if (!isManager && !isOwner) return res.status(403).json({ error: 'Insufficient permissions' });
+    if (!isManager && !isOwner) return next(new HttpError(403, 'FORBIDDEN', 'Insufficient permissions'));
 
     if (item.Payroll.status !== 'paid') {
-      return res.status(403).json({ error: 'Payslip is only available once payroll is marked as paid' });
+      return next(new HttpError(403, 'FORBIDDEN', 'Payslip is only available once payroll is marked as paid'));
     }
 
     return streamPayslip(res, {

@@ -1,6 +1,6 @@
 const request = require('supertest');
 const app = require('../src/app');
-const { resetDb, adminToken, staffToken } = require('./helpers');
+const { resetDb, adminToken, roleToken } = require('./helpers');
 
 beforeEach(resetDb);
 
@@ -23,8 +23,9 @@ describe('Employee management', () => {
   test('rejects non-manager roles', async () => {
     const res = await request(app)
       .get('/api/v1/hr/employees')
-      .set('Authorization', `Bearer ${staffToken(1)}`);
+      .set('Authorization', `Bearer ${roleToken('STAFF')}`);
     expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe('FORBIDDEN');
   });
 
   test('creates an employee with an auto-generated matricule', async () => {
@@ -53,6 +54,8 @@ describe('Employee management', () => {
       .set('Authorization', `Bearer ${adminToken()}`)
       .send({ ...validEmployee, email: 'not-an-email' });
     expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+    expect(res.body.error.details[0].field).toBe('email');
   });
 
   test('lists and searches employees', async () => {
@@ -89,5 +92,20 @@ describe('Employee management', () => {
       .get('/api/v1/hr/employees?status=active')
       .set('Authorization', `Bearer ${adminToken()}`);
     expect(stillListed.body.data).toHaveLength(0);
+  });
+
+  test('an employee created under one tenant is invisible to another tenant\'s admin', async () => {
+    const created = await request(app).post('/api/v1/hr/employees').set('Authorization', `Bearer ${adminToken()}`).send(validEmployee);
+
+    const { OTHER_TENANT_ID } = require('./helpers'); // eslint-disable-line global-require
+    const foreignGet = await request(app)
+      .get(`/api/v1/hr/employees/${created.body.id}`)
+      .set('Authorization', `Bearer ${adminToken(OTHER_TENANT_ID)}`);
+    expect(foreignGet.status).toBe(404);
+
+    const foreignList = await request(app)
+      .get('/api/v1/hr/employees')
+      .set('Authorization', `Bearer ${adminToken(OTHER_TENANT_ID)}`);
+    expect(foreignList.body.data).toHaveLength(0);
   });
 });

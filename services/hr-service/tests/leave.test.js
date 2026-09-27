@@ -1,13 +1,14 @@
 const request = require('supertest');
 const dayjs = require('dayjs');
 const app = require('../src/app');
-const { resetDb, adminToken, staffToken } = require('./helpers');
+const { resetDb, adminToken, staffToken, TENANT_ID } = require('./helpers');
 const { Employee } = require('../src/models');
 
 beforeEach(resetDb);
 
-async function makeEmployee() {
+async function makeEmployee(overrides = {}) {
   return Employee.create({
+    tenantId: TENANT_ID,
     matricule: 'EMP2025-001',
     firstName: 'Amara',
     lastName: 'Nkeng',
@@ -17,6 +18,7 @@ async function makeEmployee() {
     hireDate: '2024-01-01',
     baseSalary: 280000,
     status: 'active',
+    ...overrides,
   });
 }
 
@@ -31,7 +33,7 @@ describe('Leave tracking', () => {
 
     const res = await request(app)
       .post('/api/v1/hr/leaves')
-      .set('Authorization', `Bearer ${staffToken(employee.id)}`)
+      .set('Authorization', `Bearer ${await staffToken(employee.id)}`)
       .send({ type: 'annual', startDate, endDate, reason: 'Family trip' });
 
     expect(res.status).toBe(201);
@@ -46,18 +48,18 @@ describe('Leave tracking', () => {
 
     const res = await request(app)
       .post('/api/v1/hr/leaves')
-      .set('Authorization', `Bearer ${staffToken(employee.id)}`)
+      .set('Authorization', `Bearer ${await staffToken(employee.id)}`)
       .send({ type: 'annual', startDate, endDate });
 
     expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/Insufficient leave balance/);
+    expect(res.body.error.message).toMatch(/Insufficient leave balance/);
   });
 
   test('rejects endDate before startDate', async () => {
     const employee = await makeEmployee();
     const res = await request(app)
       .post('/api/v1/hr/leaves')
-      .set('Authorization', `Bearer ${staffToken(employee.id)}`)
+      .set('Authorization', `Bearer ${await staffToken(employee.id)}`)
       .send({ type: 'sick', startDate: '2026-01-10', endDate: '2026-01-05' });
 
     expect(res.status).toBe(400);
@@ -70,7 +72,7 @@ describe('Leave tracking', () => {
 
     const created = await request(app)
       .post('/api/v1/hr/leaves')
-      .set('Authorization', `Bearer ${staffToken(employee.id)}`)
+      .set('Authorization', `Bearer ${await staffToken(employee.id)}`)
       .send({ type: 'annual', startDate, endDate });
 
     const approve = await request(app)
@@ -97,7 +99,7 @@ describe('Leave tracking', () => {
     const employee = await makeEmployee();
     const created = await request(app)
       .post('/api/v1/hr/leaves')
-      .set('Authorization', `Bearer ${staffToken(employee.id)}`)
+      .set('Authorization', `Bearer ${await staffToken(employee.id)}`)
       .send({ type: 'sick', startDate: nextMonday, endDate: nextMonday });
 
     const missingReason = await request(app)
@@ -116,9 +118,10 @@ describe('Leave tracking', () => {
 
   test('an employee cannot view another employee\'s leave balance', async () => {
     const employee = await makeEmployee();
+    const other = await makeEmployee({ email: 'someone.else@example.com', matricule: 'EMP2025-002' });
     const res = await request(app)
       .get(`/api/v1/hr/leaves/balance/${employee.id}`)
-      .set('Authorization', `Bearer ${staffToken(employee.id + 999)}`);
+      .set('Authorization', `Bearer ${await staffToken(other.id)}`);
     expect(res.status).toBe(403);
   });
 });

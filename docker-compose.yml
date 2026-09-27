@@ -73,6 +73,11 @@ services:
       - "3307:3306"
     volumes:
       - hr-db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   notification-db:
     image: mysql:8
@@ -124,8 +129,10 @@ services:
     container_name: hr-service
     env_file: ./services/hr-service/.env
     depends_on:
-      - hr-db
-      - rabbitmq
+      hr-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     expose:
       - "4004"
 
@@ -153,8 +160,8 @@ services:
       #   condition: service_healthy
       # finance-service:
       #   condition: service_healthy
-      # hr-service:
-      #   condition: service_healthy
+      hr-service:
+        condition: service_healthy
       # notification-service:
       #   condition: service_healthy
     ports:

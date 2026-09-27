@@ -1,22 +1,25 @@
 const { Op } = require('sequelize');
 const { Employee, AuditLog } = require('../models');
 const { generateMatricule } = require('../utils/matricule');
+const HttpError = require('../utils/httpError');
 
 async function createEmployee(req, res, next) {
   try {
-    const existing = await Employee.findOne({ where: { email: req.body.email } });
-    if (existing) return res.status(409).json({ error: 'Email already in use' });
+    const { tenantId } = req.user;
+    const existing = await Employee.findOne({ where: { tenantId, email: req.body.email } });
+    if (existing) return next(new HttpError(409, 'CONFLICT', 'Email already in use'));
 
-    const matricule = await generateMatricule();
-    const employee = await Employee.create({ ...req.body, matricule, status: 'active' });
+    const matricule = await generateMatricule(tenantId);
+    const employee = await Employee.create({ ...req.body, tenantId, matricule, status: 'active' });
 
     await AuditLog.create({
+      tenantId,
       action: 'employee.created',
-      actorId: req.user?.id,
-      actorRole: req.user?.role,
+      actorId: req.user.id,
+      actorRole: req.user.role,
       targetType: 'Employee',
       targetId: employee.id,
-      details: `Employee ${employee.matricule} created by ${req.user?.role || 'unknown'} #${req.user?.id ?? 'n/a'} on ${new Date().toISOString()}`,
+      details: `Employee ${employee.matricule} created by ${req.user.role} #${req.user.id} on ${new Date().toISOString()}`,
     });
 
     return res.status(201).json(employee);
@@ -28,7 +31,7 @@ async function createEmployee(req, res, next) {
 async function listEmployees(req, res, next) {
   try {
     const { search, department, status, page, limit } = req.query;
-    const where = {};
+    const where = { tenantId: req.user.tenantId };
     if (department) where.department = department;
     if (status) where.status = status;
     if (search) {
@@ -55,17 +58,23 @@ async function listEmployees(req, res, next) {
 async function getMe(req, res, next) {
   try {
     const employee = req.user.employeeId ? await Employee.findByPk(req.user.employeeId) : null;
-    if (!employee) return res.status(404).json({ error: 'No employee record linked to your account' });
+    if (!employee) return next(new HttpError(404, 'NOT_FOUND', 'No employee record linked to your account'));
     return res.json(employee);
   } catch (err) {
     return next(err);
   }
 }
 
+// A record from another tenant is reported as 404, same as a truly missing one —
+// its existence must not leak across tenants.
+function sameTenant(record, req) {
+  return record && record.tenantId === req.user.tenantId;
+}
+
 async function getEmployee(req, res, next) {
   try {
     const employee = await Employee.findByPk(req.params.id);
-    if (!employee) return res.status(404).json({ error: 'Employee not found' });
+    if (!sameTenant(employee, req)) return next(new HttpError(404, 'NOT_FOUND', 'Employee not found'));
     return res.json(employee);
   } catch (err) {
     return next(err);
@@ -75,7 +84,7 @@ async function getEmployee(req, res, next) {
 async function updateEmployee(req, res, next) {
   try {
     const employee = await Employee.findByPk(req.params.id);
-    if (!employee) return res.status(404).json({ error: 'Employee not found' });
+    if (!sameTenant(employee, req)) return next(new HttpError(404, 'NOT_FOUND', 'Employee not found'));
 
     await employee.update(req.body); // matricule is never in req.body: not part of updateEmployeeSchema
     return res.json(employee);
@@ -87,16 +96,17 @@ async function updateEmployee(req, res, next) {
 async function deactivateEmployee(req, res, next) {
   try {
     const employee = await Employee.findByPk(req.params.id);
-    if (!employee) return res.status(404).json({ error: 'Employee not found' });
+    if (!sameTenant(employee, req)) return next(new HttpError(404, 'NOT_FOUND', 'Employee not found'));
 
     await employee.update({ status: 'inactive' });
     await AuditLog.create({
+      tenantId: req.user.tenantId,
       action: 'employee.deactivated',
-      actorId: req.user?.id,
-      actorRole: req.user?.role,
+      actorId: req.user.id,
+      actorRole: req.user.role,
       targetType: 'Employee',
       targetId: employee.id,
-      details: `Employee ${employee.matricule} deactivated by ${req.user?.role || 'unknown'} #${req.user?.id ?? 'n/a'}`,
+      details: `Employee ${employee.matricule} deactivated by ${req.user.role} #${req.user.id}`,
     });
 
     return res.json({ message: 'Employee deactivated', employee });

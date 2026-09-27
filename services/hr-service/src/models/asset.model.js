@@ -5,9 +5,10 @@ const sequelize = require('../config/database');
 // (asset/inventory management) alongside the richer payroll/leave/attendance flows.
 const Asset = sequelize.define('Asset', {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  tenantId: { type: DataTypes.STRING(36), allowNull: false },
   name: { type: DataTypes.STRING, allowNull: false },
   category: { type: DataTypes.STRING, allowNull: false },
-  serialNumber: { type: DataTypes.STRING, allowNull: false, unique: true },
+  serialNumber: { type: DataTypes.STRING, allowNull: false },
   status: {
     type: DataTypes.ENUM('available', 'assigned', 'maintenance', 'retired'),
     allowNull: false,
@@ -19,8 +20,8 @@ const Asset = sequelize.define('Asset', {
 }, {
   tableName: 'assets',
   indexes: [
-    { unique: true, fields: ['serialNumber'] },
-    { fields: ['status'] },
+    { unique: true, fields: ['tenantId', 'serialNumber'] },
+    { fields: ['tenantId', 'status'] },
   ],
 });
 

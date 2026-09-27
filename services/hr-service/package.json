@@ -37,6 +37,9 @@
     "setupFiles": [
       "<rootDir>/tests/env.js"
     ],
+    "setupFilesAfterEnv": [
+      "<rootDir>/tests/setupAfterEnv.js"
+    ],
     "collectCoverageFrom": [
       "src/**/*.js",
       "!src/server.js"

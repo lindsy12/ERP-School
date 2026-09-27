@@ -4,11 +4,16 @@ const { Attendance, Employee, Leave } = require('../models');
 const { generateQr, verifyQr } = require('../services/qr.service');
 const { lateCutoff } = require('../config/payrollConfig');
 const { HR_MANAGER_ROLES } = require('../middleware/auth');
+const HttpError = require('../utils/httpError');
+
+function sameTenant(record, req) {
+  return record && record.tenantId === req.user.tenantId;
+}
 
 async function getEmployeeQr(req, res, next) {
   try {
     const employee = await Employee.findByPk(req.params.employeeId);
-    if (!employee) return res.status(404).json({ error: 'Employee not found' });
+    if (!sameTenant(employee, req)) return next(new HttpError(404, 'NOT_FOUND', 'Employee not found'));
 
     const { image, qrData } = await generateQr(employee.id);
     return res.json({ employeeId: employee.id, image, qrData });
@@ -21,17 +26,18 @@ async function checkIn(req, res, next) {
   try {
     const { qrData, location } = req.body;
     const result = verifyQr(qrData);
-    if (!result.valid) return res.status(400).json({ error: result.reason });
+    if (!result.valid) return next(new HttpError(400, 'INVALID_QR', result.reason));
 
     const employee = await Employee.findByPk(result.employeeId);
-    if (!employee || employee.status !== 'active') {
-      return res.status(404).json({ error: 'Employee not found or inactive' });
+    // A QR from another tenant's badge (or a stale/inactive employee) is reported the same way.
+    if (!sameTenant(employee, req) || employee.status !== 'active') {
+      return next(new HttpError(404, 'NOT_FOUND', 'Employee not found or inactive'));
     }
 
     const today = dayjs().format('YYYY-MM-DD');
     const existing = await Attendance.findOne({ where: { employeeId: employee.id, date: today } });
     if (existing) {
-      return res.status(409).json({ error: `Already checked in today at ${dayjs(existing.checkInTime).format('HH:mm')}` });
+      return next(new HttpError(409, 'CONFLICT', `Already checked in today at ${dayjs(existing.checkInTime).format('HH:mm')}`));
     }
 
     const now = dayjs();
@@ -39,6 +45,7 @@ async function checkIn(req, res, next) {
     const isLate = now.hour() > cutoffH || (now.hour() === cutoffH && now.minute() > cutoffM);
 
     const attendance = await Attendance.create({
+      tenantId: employee.tenantId,
       employeeId: employee.id,
       date: today,
       checkInTime: now.toDate(),
@@ -57,15 +64,15 @@ async function checkOut(req, res, next) {
     // Only managers may act for someone else; everyone else is pinned to their own record.
     const isManager = HR_MANAGER_ROLES.includes(req.user.role);
     const employeeId = isManager ? (req.body.employeeId || req.user.employeeId) : req.user.employeeId;
-    if (!employeeId) return res.status(400).json({ error: 'No employee record linked to your account' });
+    if (!employeeId) return next(new HttpError(400, 'VALIDATION_ERROR', 'No employee record linked to your account'));
 
     const today = dayjs().format('YYYY-MM-DD');
-    const attendance = await Attendance.findOne({ where: { employeeId, date: today } });
+    const attendance = await Attendance.findOne({ where: { employeeId, date: today, tenantId: req.user.tenantId } });
     if (!attendance || !attendance.checkInTime) {
-      return res.status(400).json({ error: 'You must check in before checking out' });
+      return next(new HttpError(400, 'VALIDATION_ERROR', 'You must check in before checking out'));
     }
     if (attendance.checkOutTime) {
-      return res.status(409).json({ error: 'Already checked out today' });
+      return next(new HttpError(409, 'CONFLICT', 'Already checked out today'));
     }
 
     const now = dayjs();
@@ -81,6 +88,7 @@ async function checkOut(req, res, next) {
 async function myAttendance(req, res, next) {
   try {
     const employeeId = req.params.employeeId || req.user.employeeId;
+    const { tenantId } = req.user;
     const month = Number(req.query.month) || dayjs().month() + 1;
     const year = Number(req.query.year) || dayjs().year();
 
@@ -89,11 +97,12 @@ async function myAttendance(req, res, next) {
 
     const [records, leaves] = await Promise.all([
       Attendance.findAll({
-        where: { employeeId, date: { [Op.between]: [start.format('YYYY-MM-DD'), end.format('YYYY-MM-DD')] } },
+        where: { employeeId, tenantId, date: { [Op.between]: [start.format('YYYY-MM-DD'), end.format('YYYY-MM-DD')] } },
       }),
       Leave.findAll({
         where: {
           employeeId,
+          tenantId,
           status: 'approved',
           startDate: { [Op.lte]: end.format('YYYY-MM-DD') },
           endDate: { [Op.gte]: start.format('YYYY-MM-DD') },

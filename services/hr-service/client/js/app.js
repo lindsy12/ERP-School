@@ -1,4 +1,4 @@
-import { session, isManager, setToken, clearToken, login } from './api.js';
+import { session, isManager, setToken, clearToken, login, getTenantId } from './api.js';
 import { h, svg, clear, loading, toast } from './ui.js';
 import { resetMe } from './state.js';
 
@@ -32,6 +32,7 @@ function showLogin(message) {
   $('login').hidden = false;
   $('login-msg').textContent = message || '';
   $('login-msg').hidden = !message;
+  if (!$('tenant').value) $('tenant').value = getTenantId();
 }
 
 function buildShell() {
@@ -87,7 +88,7 @@ function initLogin() {
     btn.disabled = true;
     try {
       const f = new FormData(e.target);
-      setToken(await login(f.get('email'), f.get('password')));
+      setToken(await login(f.get('tenant').trim(), f.get('email'), f.get('password')));
       resetMe();
       location.hash = '';
       route();

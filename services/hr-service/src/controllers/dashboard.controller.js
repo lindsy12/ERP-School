@@ -4,16 +4,17 @@ const { Employee, Attendance, Leave } = require('../models');
 
 async function getStats(req, res, next) {
   try {
+    const { tenantId } = req.user;
     const today = dayjs().format('YYYY-MM-DD');
 
     const [totalActive, todayRecords, onLeaveToday, departmentCounts] = await Promise.all([
-      Employee.count({ where: { status: 'active' } }),
-      Attendance.findAll({ where: { date: today } }),
+      Employee.count({ where: { tenantId, status: 'active' } }),
+      Attendance.findAll({ where: { tenantId, date: today } }),
       Leave.count({
-        where: { status: 'approved', startDate: { [Op.lte]: today }, endDate: { [Op.gte]: today } },
+        where: { tenantId, status: 'approved', startDate: { [Op.lte]: today }, endDate: { [Op.gte]: today } },
       }),
       Employee.findAll({
-        where: { status: 'active' },
+        where: { tenantId, status: 'active' },
         attributes: ['department', [fn('COUNT', col('id')), 'count']],
         group: ['department'],
       }),
@@ -23,7 +24,7 @@ async function getStats(req, res, next) {
     const lateToday = todayRecords.filter((r) => r.status === 'late').length;
 
     const trendDays = Array.from({ length: 7 }).map((_, i) => dayjs().subtract(6 - i, 'day').format('YYYY-MM-DD'));
-    const trendRecords = await Attendance.findAll({ where: { date: { [Op.in]: trendDays } } });
+    const trendRecords = await Attendance.findAll({ where: { tenantId, date: { [Op.in]: trendDays } } });
     const attendanceTrend = trendDays.map((date) => ({
       date,
       present: trendRecords.filter((r) => r.date === date && (r.status === 'present' || r.status === 'late')).length,

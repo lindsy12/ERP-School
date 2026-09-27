@@ -1,12 +1,13 @@
 const request = require('supertest');
 const app = require('../src/app');
-const { resetDb, adminToken, staffToken } = require('./helpers');
+const { resetDb, adminToken, staffToken, TENANT_ID } = require('./helpers');
 const { Employee } = require('../src/models');
 
 beforeEach(resetDb);
 
 async function makeEmployee() {
   return Employee.create({
+    tenantId: TENANT_ID,
     matricule: 'EMP2025-001',
     firstName: 'Jane',
     lastName: 'Smith',
@@ -34,7 +35,8 @@ describe('QR attendance', () => {
     const employee = await makeEmployee();
     const qrRes = await request(app)
       .get(`/api/v1/hr/attendance/qr/${employee.id}`)
-      .set('Authorization', `Bearer ${staffToken(employee.id)}`);
+      .set('Authorization', `Bearer ${await staffToken(employee.id)}`);
+    expect(qrRes.status).toBe(200);
 
     // Re-derive the raw qrData the same way the service does, since the
     // response only carries the rendered image.
@@ -43,7 +45,7 @@ describe('QR attendance', () => {
 
     const res = await request(app)
       .post('/api/v1/hr/attendance/checkin')
-      .set('Authorization', `Bearer ${staffToken(employee.id)}`)
+      .set('Authorization', `Bearer ${await staffToken(employee.id)}`)
       .send({ qrData, location: 'Main Gate' });
 
     expect(res.status).toBe(201);
@@ -54,7 +56,7 @@ describe('QR attendance', () => {
     const employee = await makeEmployee();
     const res = await request(app)
       .post('/api/v1/hr/attendance/checkin')
-      .set('Authorization', `Bearer ${staffToken(employee.id)}`)
+      .set('Authorization', `Bearer ${await staffToken(employee.id)}`)
       .send({ qrData: `${employee.id}:2025-01-01:deadbeef`, location: 'Main Gate' });
 
     expect(res.status).toBe(400);
@@ -64,37 +66,39 @@ describe('QR attendance', () => {
     const employee = await makeEmployee();
     const { generateQr } = require('../src/services/qr.service');
     const { qrData } = await generateQr(employee.id);
+    const token = await staffToken(employee.id);
 
-    await request(app).post('/api/v1/hr/attendance/checkin').set('Authorization', `Bearer ${staffToken(employee.id)}`).send({ qrData });
+    await request(app).post('/api/v1/hr/attendance/checkin').set('Authorization', `Bearer ${token}`).send({ qrData });
     const res = await request(app)
       .post('/api/v1/hr/attendance/checkin')
-      .set('Authorization', `Bearer ${staffToken(employee.id)}`)
+      .set('Authorization', `Bearer ${token}`)
       .send({ qrData });
 
     expect(res.status).toBe(409);
-    expect(res.body.error).toMatch(/Already checked in today/);
+    expect(res.body.error.message).toMatch(/Already checked in today/);
   });
 
   test('requires check-in before check-out', async () => {
     const employee = await makeEmployee();
     const res = await request(app)
       .post('/api/v1/hr/attendance/checkout')
-      .set('Authorization', `Bearer ${staffToken(employee.id)}`)
+      .set('Authorization', `Bearer ${await staffToken(employee.id)}`)
       .send({ employeeId: employee.id });
 
     expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/must check in/);
+    expect(res.body.error.message).toMatch(/must check in/);
   });
 
   test('computes duration on check-out', async () => {
     const employee = await makeEmployee();
     const { generateQr } = require('../src/services/qr.service');
     const { qrData } = await generateQr(employee.id);
+    const token = await staffToken(employee.id);
 
-    await request(app).post('/api/v1/hr/attendance/checkin').set('Authorization', `Bearer ${staffToken(employee.id)}`).send({ qrData });
+    await request(app).post('/api/v1/hr/attendance/checkin').set('Authorization', `Bearer ${token}`).send({ qrData });
     const res = await request(app)
       .post('/api/v1/hr/attendance/checkout')
-      .set('Authorization', `Bearer ${staffToken(employee.id)}`)
+      .set('Authorization', `Bearer ${token}`)
       .send({ employeeId: employee.id });
 
     expect(res.status).toBe(200);

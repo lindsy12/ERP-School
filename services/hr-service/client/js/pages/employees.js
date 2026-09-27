@@ -15,7 +15,7 @@ function employeeForm(existing, onSaved) {
     field('Role / job title', input('role', 'text', { required: true, maxlength: 100 })),
     field('Hire date', input('hireDate', 'date', { required: true, value: e.hireDate || '' })),
     field('Base salary (FCFA / month)', input('baseSalary', 'number', { required: true, min: 0, step: '1' })),
-    field('Auth user ID', input('userId', 'number', { min: 1 }), 'Optional — links this employee to their login account so they can use self-service.'),
+    field('Auth user ID (UUID)', input('userId', 'text', { pattern: '[0-9a-fA-F-]{36}' }), 'Optional — the matching auth-service user id, links this employee to their login account so they can use self-service.'),
     existing ? field('Status', select('status', ['active', 'inactive'], e.status)) : null,
     existing ? h('div', { class: 'field' }, h('label', null, 'Matricule'), h('input', { value: e.matricule, disabled: true }), h('span', { class: 'hint' }, 'Generated automatically and cannot be changed.')) : null);
 
@@ -27,7 +27,7 @@ function employeeForm(existing, onSaved) {
       const body = {
         ...raw,
         baseSalary: Number(raw.baseSalary),
-        userId: raw.userId === '' ? null : Number(raw.userId),
+        userId: raw.userId === '' ? null : raw.userId,
         phone: raw.phone || null,
       };
       const saved = existing

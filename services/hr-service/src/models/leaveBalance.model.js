@@ -4,6 +4,7 @@ const { defaultAnnualLeaveDays } = require('../config/payrollConfig');
 
 const LeaveBalance = sequelize.define('LeaveBalance', {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  tenantId: { type: DataTypes.STRING(36), allowNull: false },
   employeeId: { type: DataTypes.INTEGER, allowNull: false },
   year: { type: DataTypes.INTEGER, allowNull: false },
   annualTotal: { type: DataTypes.INTEGER, allowNull: false, defaultValue: defaultAnnualLeaveDays },
@@ -15,6 +16,7 @@ const LeaveBalance = sequelize.define('LeaveBalance', {
   tableName: 'leave_balances',
   indexes: [
     { unique: true, fields: ['employeeId', 'year'] },
+    { fields: ['tenantId'] },
   ],
 });
 

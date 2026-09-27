@@ -3,7 +3,7 @@
 //   docker compose exec hr-service node scripts/seed-demo.js
 //   (or locally: DB_HOST=127.0.0.1 DB_PORT=3307 npm run seed)
 //
-// Idempotent: does nothing if employees already exist. Refuses to run in production.
+// Idempotent: does nothing if this tenant already has employees. Refuses to run in production.
 require('dotenv').config();
 const dayjs = require('dayjs');
 const {
@@ -11,10 +11,14 @@ const {
 } = require('../src/models');
 const { generateMatricule } = require('../src/utils/matricule');
 
+// Matches scripts/dev-token.js's default tenantId/userId, so a token from
+// `npm run dev-token -- STAFF` (no args) lines up with Paul Mbarga below.
+const TENANT_ID = '00000000-0000-4000-8000-000000000001';
+const STAFF_DEV_USER_ID = '00000000-0000-4000-8000-0000000000f1';
+
 const PEOPLE = [
-  // userId 1 = the dev "Admin" token, userId 2 = the dev "Staff" token (see dev-token.js)
-  ['Keziah', 'Ngu', 'HR', 'HR Manager', 650000, 1],
-  ['Paul', 'Mbarga', 'Academic', 'Lecturer', 420000, 2],
+  ['Keziah', 'Ngu', 'HR', 'HR Manager', 650000, null],
+  ['Paul', 'Mbarga', 'Academic', 'Lecturer', 420000, STAFF_DEV_USER_ID],
   ['Aisha', 'Tchoumi', 'Academic', 'Senior Lecturer', 550000, null],
   ['Brice', 'Fotso', 'Finance', 'Accountant', 380000, null],
   ['Carine', 'Essomba', 'Finance', 'Finance Officer', 300000, null],
@@ -27,8 +31,8 @@ async function run() {
   if (process.env.NODE_ENV === 'production') throw new Error('seed-demo refuses to run with NODE_ENV=production');
   await sequelize.authenticate();
   await sequelize.sync();
-  if (await Employee.count() > 0) {
-    console.log('[seed] employees already exist — nothing to do');
+  if (await Employee.count({ where: { tenantId: TENANT_ID } }) > 0) {
+    console.log('[seed] this tenant already has employees — nothing to do');
     return;
   }
 
@@ -36,9 +40,10 @@ async function run() {
   for (const [firstName, lastName, department, role, baseSalary, userId] of PEOPLE) {
     // sequential on purpose: matricule numbering depends on the running count
     // eslint-disable-next-line no-await-in-loop
-    const matricule = await generateMatricule();
+    const matricule = await generateMatricule(TENANT_ID);
     // eslint-disable-next-line no-await-in-loop
     employees.push(await Employee.create({
+      tenantId: TENANT_ID,
       matricule,
       firstName,
       lastName,
@@ -63,6 +68,7 @@ async function run() {
       const checkIn = day.hour(late ? 8 : 7).minute(late ? 47 : 52).second(0);
       // eslint-disable-next-line no-await-in-loop
       await Attendance.create({
+        tenantId: TENANT_ID,
         employeeId: emp.id,
         date: day.format('YYYY-MM-DD'),
         checkInTime: checkIn.toDate(),
@@ -77,30 +83,30 @@ async function run() {
   // Leave: one approved (covering today), one pending, one rejected.
   const today = dayjs();
   await Leave.create({
-    employeeId: employees[2].id, type: 'annual', startDate: today.format('YYYY-MM-DD'),
+    tenantId: TENANT_ID, employeeId: employees[2].id, type: 'annual', startDate: today.format('YYYY-MM-DD'),
     endDate: today.add(2, 'day').format('YYYY-MM-DD'), days: 3, reason: 'Family event',
-    status: 'approved', approvedBy: 1, approvedAt: new Date(),
+    status: 'approved', approvedBy: STAFF_DEV_USER_ID, approvedAt: new Date(),
   });
-  await LeaveBalance.create({ employeeId: employees[2].id, year: today.year(), annualUsed: 3 });
+  await LeaveBalance.create({ tenantId: TENANT_ID, employeeId: employees[2].id, year: today.year(), annualUsed: 3 });
   await Leave.create({
-    employeeId: employees[1].id, type: 'sick', startDate: today.add(7, 'day').format('YYYY-MM-DD'),
+    tenantId: TENANT_ID, employeeId: employees[1].id, type: 'sick', startDate: today.add(7, 'day').format('YYYY-MM-DD'),
     endDate: today.add(8, 'day').format('YYYY-MM-DD'), days: 2, reason: 'Medical appointment', status: 'pending',
   });
   await Leave.create({
-    employeeId: employees[4].id, type: 'annual', startDate: today.add(20, 'day').format('YYYY-MM-DD'),
+    tenantId: TENANT_ID, employeeId: employees[4].id, type: 'annual', startDate: today.add(20, 'day').format('YYYY-MM-DD'),
     endDate: today.add(24, 'day').format('YYYY-MM-DD'), days: 5, reason: 'Trip', status: 'rejected',
     rejectionReason: 'Month-end closing period',
   });
 
   await Asset.bulkCreate([
-    { name: 'Dell Latitude 5440', category: 'IT Equipment', serialNumber: 'DL-5440-001', status: 'assigned', assignedTo: employees[5].id, purchaseDate: '2025-02-10', value: 650000 },
-    { name: 'HP LaserJet Pro', category: 'IT Equipment', serialNumber: 'HP-LJ-014', status: 'available', purchaseDate: '2024-11-03', value: 210000 },
-    { name: 'Projector Epson EB-X49', category: 'Teaching Equipment', serialNumber: 'EP-X49-007', status: 'maintenance', purchaseDate: '2023-06-21', value: 320000 },
-    { name: 'Office Desk', category: 'Furniture', serialNumber: 'FU-DK-120', status: 'assigned', assignedTo: employees[6].id, purchaseDate: '2024-01-15', value: 85000 },
-    { name: 'Toyota Hilux (school van)', category: 'Vehicle', serialNumber: 'VH-TY-2019', status: 'available', purchaseDate: '2019-05-30', value: 14500000 },
+    { tenantId: TENANT_ID, name: 'Dell Latitude 5440', category: 'IT Equipment', serialNumber: 'DL-5440-001', status: 'assigned', assignedTo: employees[5].id, purchaseDate: '2025-02-10', value: 650000 },
+    { tenantId: TENANT_ID, name: 'HP LaserJet Pro', category: 'IT Equipment', serialNumber: 'HP-LJ-014', status: 'available', purchaseDate: '2024-11-03', value: 210000 },
+    { tenantId: TENANT_ID, name: 'Projector Epson EB-X49', category: 'Teaching Equipment', serialNumber: 'EP-X49-007', status: 'maintenance', purchaseDate: '2023-06-21', value: 320000 },
+    { tenantId: TENANT_ID, name: 'Office Desk', category: 'Furniture', serialNumber: 'FU-DK-120', status: 'assigned', assignedTo: employees[6].id, purchaseDate: '2024-01-15', value: 85000 },
+    { tenantId: TENANT_ID, name: 'Toyota Hilux (school van)', category: 'Vehicle', serialNumber: 'VH-TY-2019', status: 'available', purchaseDate: '2019-05-30', value: 14500000 },
   ]);
 
-  console.log(`[seed] created ${employees.length} employees, attendance, leaves and assets`);
+  console.log(`[seed] created ${employees.length} employees, attendance, leaves and assets for tenant ${TENANT_ID}`);
 }
 
 run()

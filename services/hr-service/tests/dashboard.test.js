@@ -1,6 +1,6 @@
 const request = require('supertest');
 const app = require('../src/app');
-const { resetDb, adminToken } = require('./helpers');
+const { resetDb, adminToken, TENANT_ID } = require('./helpers');
 const { Employee } = require('../src/models');
 
 beforeEach(resetDb);
@@ -8,6 +8,7 @@ beforeEach(resetDb);
 describe('HR dashboard', () => {
   test('returns aggregate stats for managers', async () => {
     await Employee.create({
+      tenantId: TENANT_ID,
       matricule: 'EMP2025-001', firstName: 'A', lastName: 'B', email: 'a.b@example.com',
       department: 'Academic', role: 'Staff', hireDate: '2024-01-01', baseSalary: 200000, status: 'active',
     });

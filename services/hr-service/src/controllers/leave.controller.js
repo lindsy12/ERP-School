@@ -4,36 +4,47 @@ const { Leave, LeaveBalance, Employee } = require('../models');
 const { countBusinessDays } = require('../utils/businessDays');
 const { publish } = require('../config/rabbitmq');
 const { HR_MANAGER_ROLES } = require('../middleware/auth');
+const HttpError = require('../utils/httpError');
 
-async function getOrCreateBalance(employeeId, year) {
+function sameTenant(record, req) {
+  return record && record.tenantId === req.user.tenantId;
+}
+
+async function getOrCreateBalance(tenantId, employeeId, year) {
   const [balance] = await LeaveBalance.findOrCreate({
-    where: { employeeId, year },
-    defaults: { employeeId, year },
+    where: { tenantId, employeeId, year },
+    defaults: { tenantId, employeeId, year },
   });
   return balance;
 }
 
 async function requestLeave(req, res, next) {
   try {
+    const { tenantId } = req.user;
     // Only managers may file on behalf of someone else; everyone else is pinned to their own record.
     const isManager = HR_MANAGER_ROLES.includes(req.user.role);
     const employeeId = isManager ? (req.body.employeeId || req.user.employeeId) : req.user.employeeId;
-    if (!employeeId) return res.status(400).json({ error: 'No employee record linked to your account' });
+    if (!employeeId) return next(new HttpError(400, 'VALIDATION_ERROR', 'No employee record linked to your account'));
+
+    if (isManager && req.body.employeeId) {
+      const target = await Employee.findByPk(req.body.employeeId);
+      if (!sameTenant(target, req)) return next(new HttpError(404, 'NOT_FOUND', 'Employee not found'));
+    }
 
     const { type, startDate, endDate, reason, attachmentUrl } = req.body;
     const days = countBusinessDays(startDate, endDate);
     const year = dayjs(startDate).year();
 
     if (type === 'annual') {
-      const balance = await getOrCreateBalance(employeeId, year);
+      const balance = await getOrCreateBalance(tenantId, employeeId, year);
       const remaining = balance.annualTotal - balance.annualUsed;
       if (days > remaining) {
-        return res.status(400).json({ error: `Insufficient leave balance: ${remaining} day(s) remaining, ${days} requested` });
+        return next(new HttpError(400, 'VALIDATION_ERROR', `Insufficient leave balance: ${remaining} day(s) remaining, ${days} requested`));
       }
     }
 
     const leave = await Leave.create({
-      employeeId, type, startDate, endDate, days, reason, attachmentUrl, status: 'pending',
+      tenantId, employeeId, type, startDate, endDate, days, reason, attachmentUrl, status: 'pending',
     });
 
     return res.status(201).json(leave);
@@ -45,7 +56,7 @@ async function requestLeave(req, res, next) {
 async function listLeaves(req, res, next) {
   try {
     const { status, employeeId } = req.query;
-    const where = {};
+    const where = { tenantId: req.user.tenantId };
     if (status) where.status = status;
     if (employeeId) where.employeeId = employeeId;
 
@@ -62,8 +73,8 @@ async function listLeaves(req, res, next) {
 
 async function myLeaves(req, res, next) {
   try {
-    if (!req.user.employeeId) return res.status(404).json({ error: 'No employee record linked to your account' });
-    const leaves = await Leave.findAll({ where: { employeeId: req.user.employeeId }, order: [['createdAt', 'DESC']] });
+    if (!req.user.employeeId) return next(new HttpError(404, 'NOT_FOUND', 'No employee record linked to your account'));
+    const leaves = await Leave.findAll({ where: { employeeId: req.user.employeeId, tenantId: req.user.tenantId }, order: [['createdAt', 'DESC']] });
     return res.json(leaves);
   } catch (err) {
     return next(err);
@@ -73,18 +84,19 @@ async function myLeaves(req, res, next) {
 async function approveLeave(req, res, next) {
   try {
     const leave = await Leave.findByPk(req.params.id);
-    if (!leave) return res.status(404).json({ error: 'Leave request not found' });
-    if (leave.status !== 'pending') return res.status(409).json({ error: `Leave already ${leave.status}` });
+    if (!sameTenant(leave, req)) return next(new HttpError(404, 'NOT_FOUND', 'Leave request not found'));
+    if (leave.status !== 'pending') return next(new HttpError(409, 'CONFLICT', `Leave already ${leave.status}`));
 
     const approvedBy = req.user.id; // never trust a client-supplied approver
     await leave.update({ status: 'approved', approvedBy, approvedAt: new Date() });
 
     const year = dayjs(leave.startDate).year();
-    const balance = await getOrCreateBalance(leave.employeeId, year);
+    const balance = await getOrCreateBalance(req.user.tenantId, leave.employeeId, year);
     const usedField = { annual: 'annualUsed', sick: 'sickUsed', maternity: 'maternityUsed', paternity: 'paternityUsed' }[leave.type];
     await balance.update({ [usedField]: balance[usedField] + leave.days });
 
     publish('hr.leave.approved', {
+      tenantId: leave.tenantId,
       leaveId: leave.id,
       employeeId: leave.employeeId,
       type: leave.type,
@@ -102,12 +114,13 @@ async function approveLeave(req, res, next) {
 async function rejectLeave(req, res, next) {
   try {
     const leave = await Leave.findByPk(req.params.id);
-    if (!leave) return res.status(404).json({ error: 'Leave request not found' });
-    if (leave.status !== 'pending') return res.status(409).json({ error: `Leave already ${leave.status}` });
+    if (!sameTenant(leave, req)) return next(new HttpError(404, 'NOT_FOUND', 'Leave request not found'));
+    if (leave.status !== 'pending') return next(new HttpError(409, 'CONFLICT', `Leave already ${leave.status}`));
 
     await leave.update({ status: 'rejected', rejectionReason: req.body.rejectionReason });
 
     publish('hr.leave.rejected', {
+      tenantId: leave.tenantId,
       leaveId: leave.id,
       employeeId: leave.employeeId,
       rejectionReason: leave.rejectionReason,
@@ -123,8 +136,12 @@ async function rejectLeave(req, res, next) {
 async function getBalance(req, res, next) {
   try {
     const { employeeId } = req.params;
+    const { tenantId } = req.user;
+    const employee = await Employee.findByPk(employeeId);
+    if (!sameTenant(employee, req)) return next(new HttpError(404, 'NOT_FOUND', 'Employee not found'));
+
     const year = Number(req.query.year) || dayjs().year();
-    const balance = await getOrCreateBalance(employeeId, year);
+    const balance = await getOrCreateBalance(tenantId, employeeId, year);
 
     return res.json({
       employeeId: Number(employeeId),
@@ -148,6 +165,7 @@ async function leaveCalendar(req, res, next) {
 
     const leaves = await Leave.findAll({
       where: {
+        tenantId: req.user.tenantId,
         status: 'approved',
         startDate: { [Op.lte]: end.format('YYYY-MM-DD') },
         endDate: { [Op.gte]: start.format('YYYY-MM-DD') },
