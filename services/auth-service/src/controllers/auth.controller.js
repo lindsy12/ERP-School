@@ -1,12 +1,23 @@
 // Translates between HTTP and the auth service: read the request, call the logic, send the response.
 const authService = require('../services/auth.service');
-const { validateLogin } = require('../validators/auth.validators');
+const { validateLogin, validateRefreshToken } = require('../validators/auth.validators');
 
 async function login(req, res) {
   const credentials = validateLogin(req.body);
   const tokens = await authService.login(credentials);
   res.set('Cache-Control', 'no-store'); // never let a proxy or browser cache tokens
   res.json(tokens);
+}
+
+async function refresh(req, res) {
+  const tokens = await authService.refresh(validateRefreshToken(req.body));
+  res.set('Cache-Control', 'no-store');
+  res.json(tokens);
+}
+
+async function logout(req, res) {
+  await authService.logout(req.user.id, validateRefreshToken(req.body));
+  res.status(204).end();
 }
 
 async function me(req, res) {
@@ -21,4 +32,4 @@ async function verify(req, res) {
   res.json({ id: user.id, role: user.role, tenant_id: user.tenant_id });
 }
 
-module.exports = { login, me, verify };
+module.exports = { login, refresh, logout, me, verify };

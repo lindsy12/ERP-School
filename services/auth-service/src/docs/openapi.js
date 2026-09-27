@@ -18,7 +18,7 @@ module.exports = {
     title: 'School ERP — Auth Service',
     version: '1.0.0',
     description:
-      'Login, JWT issuing and the current user. Every error uses the same shape: ' +
+      'Login, JWT issuing, refresh-token rotation, logout and the current user. Every error uses the same shape: ' +
       '`{ "error": { "code", "message", "details"? } }`.',
   },
   tags: [{ name: 'Auth' }, { name: 'Health' }],
@@ -56,6 +56,58 @@ module.exports = {
             },
           },
           401: errorResponse('Wrong credentials', 'INVALID_CREDENTIALS', 'Invalid email or password'),
+          500: errorResponse('Unexpected server error', 'INTERNAL_ERROR', 'Internal server error'),
+        },
+      },
+    },
+    '/api/v1/auth/refresh': {
+      post: {
+        tags: ['Auth'],
+        summary: 'Swap a refresh token for a new access + refresh token pair',
+        description:
+          'Rotation: each refresh token works once. The one sent is revoked and a new one is issued ' +
+          'in the same session (token family). Sending a token that was already rotated is treated ' +
+          'as theft: the whole session is revoked, a security warning is logged, and 401 is returned.',
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/RefreshTokenRequest' } } },
+        },
+        responses: {
+          200: {
+            description: 'New token pair. The refresh token sent is no longer valid.',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/TokenResponse' } } },
+          },
+          400: errorResponse('`refresh_token` missing or not a string', 'VALIDATION_ERROR', 'Request body is invalid'),
+          401: errorResponse(
+            'Unknown, expired, revoked or reused refresh token. The client must log in again.',
+            'INVALID_REFRESH_TOKEN',
+            'Refresh token is invalid or expired',
+          ),
+          500: errorResponse('Unexpected server error', 'INTERNAL_ERROR', 'Internal server error'),
+        },
+      },
+    },
+    '/api/v1/auth/logout': {
+      post: {
+        tags: ['Auth'],
+        summary: 'End the session the refresh token belongs to',
+        description:
+          'Revokes every refresh token of that session. Repeating it succeeds. Access tokens already ' +
+          'issued stay valid until they expire (at most 15 minutes).',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/RefreshTokenRequest' } } },
+        },
+        responses: {
+          204: { description: 'Session ended' },
+          400: errorResponse('`refresh_token` missing or not a string', 'VALIDATION_ERROR', 'Request body is invalid'),
+          401: errorResponse(
+            'Access token missing/invalid (`UNAUTHORIZED`, `INVALID_TOKEN`, `TOKEN_EXPIRED`), or the refresh ' +
+              'token is unknown or belongs to another user (`INVALID_REFRESH_TOKEN`)',
+            'INVALID_REFRESH_TOKEN',
+            'Refresh token is invalid or expired',
+          ),
           500: errorResponse('Unexpected server error', 'INTERNAL_ERROR', 'Internal server error'),
         },
       },
@@ -160,6 +212,13 @@ module.exports = {
           },
         },
       },
+      RefreshTokenRequest: {
+        type: 'object',
+        required: ['refresh_token'],
+        properties: {
+          refresh_token: { type: 'string', maxLength: 128, description: 'From login or the last refresh' },
+        },
+      },
       TokenResponse: {
         type: 'object',
         required: ['access_token', 'refresh_token', 'token_type', 'expires_in'],
@@ -212,6 +271,7 @@ module.exports = {
                   'UNAUTHORIZED',
                   'INVALID_TOKEN',
                   'TOKEN_EXPIRED',
+                  'INVALID_REFRESH_TOKEN',
                   'FORBIDDEN',
                   'NOT_FOUND',
                   'PAYLOAD_TOO_LARGE',

@@ -9,6 +9,11 @@ const HttpError = require('../utils/httpError');
 const invalidCredentials = () =>
   new HttpError(401, 'INVALID_CREDENTIALS', 'Invalid email or password');
 
+// One error for every refresh failure (unknown, expired, revoked, reused), so a caller learns
+// nothing except "log in again".
+const invalidRefreshToken = () =>
+  new HttpError(401, 'INVALID_REFRESH_TOKEN', 'Refresh token is invalid or expired');
+
 // When the email doesn't exist we still run bcrypt against this throwaway hash, so a missing
 // user takes as long to reject as a wrong password. Otherwise response time would reveal
 // which emails are registered.
@@ -36,12 +41,80 @@ async function login({ tenantId, email, password }) {
     expiresAt: refresh.expiresAt,
   });
 
+  return tokenResponse(user, refresh.token);
+}
+
+function tokenResponse(user, refreshToken) {
   return {
     access_token: tokenService.signAccessToken(user),
-    refresh_token: refresh.token,
+    refresh_token: refreshToken,
     token_type: 'Bearer',
     expires_in: tokenService.accessTokenTtlSeconds,
   };
+}
+
+// Rotation: every refresh token works once. Using it revokes it and issues a new one in the same
+// family (the same login session). If a token that was already rotated comes back, two parties
+// hold copies of it and we can't tell which one is the real user, so the whole family is revoked
+// and both must log in again.
+async function refresh(refreshToken) {
+  const outcome = await refreshTokenModel.withTransaction(async (tx) => {
+    const now = new Date();
+    const current = await tx.findByHashForUpdate(tokenService.hashRefreshToken(refreshToken));
+
+    if (!current || current.expires_at <= now || current.family_revoked_at) {
+      return { ok: false }; // unknown, expired, or the session was ended (logout / earlier reuse)
+    }
+
+    if (current.revoked_at) {
+      await tx.revokeFamily(current.family_id, now);
+      return { ok: false, reuse: current }; // return, not throw: throwing would roll back the revocation
+    }
+
+    const user = await userModel.findById(current.user_id);
+    if (!user || !user.is_active) return { ok: false };
+
+    const next = tokenService.generateRefreshToken();
+    await tx.rotate({
+      oldTokenId: current.id,
+      familyId: current.family_id,
+      newTokenId: crypto.randomUUID(),
+      newTokenHash: next.tokenHash,
+      newExpiresAt: next.expiresAt,
+      now,
+    });
+    return { ok: true, user, refreshToken: next.token };
+  });
+
+  if (outcome.reuse) {
+    console.warn(
+      JSON.stringify({
+        time: new Date().toISOString(),
+        level: 'warn',
+        event: 'auth.refresh_token.reuse_detected',
+        message: 'A revoked refresh token was used again; its token family was revoked',
+        userId: outcome.reuse.user_id,
+        familyId: outcome.reuse.family_id,
+        tokenId: outcome.reuse.id,
+      }),
+    );
+  }
+  if (!outcome.ok) throw invalidRefreshToken();
+
+  return tokenResponse(outcome.user, outcome.refreshToken);
+}
+
+// Ends the session the refresh token belongs to. Only its owner can do this. Ending a session
+// that is already ended succeeds, so a client can retry safely.
+async function logout(userId, refreshToken) {
+  const found = await refreshTokenModel.withTransaction(async (tx) => {
+    const current = await tx.findByHashForUpdate(tokenService.hashRefreshToken(refreshToken));
+    if (!current || current.user_id !== userId) return false;
+    if (!current.family_revoked_at) await tx.revokeFamily(current.family_id);
+    return true;
+  });
+
+  if (!found) throw invalidRefreshToken();
 }
 
 async function getMe(userId) {
@@ -53,4 +126,4 @@ async function getMe(userId) {
   return { id: user.id, email: user.email, role: user.role, tenant_id: user.tenant_id };
 }
 
-module.exports = { login, getMe };
+module.exports = { login, refresh, logout, getMe };

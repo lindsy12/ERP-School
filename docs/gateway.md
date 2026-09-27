@@ -31,7 +31,7 @@ Defined in `gateway/src/config/publicRoutes.js`. Exact method + path; everything
 | Method | Path |
 |---|---|
 | POST | `/api/v1/auth/login` |
-| POST | `/api/v1/auth/refresh` (not implemented in auth-service yet) |
+| POST | `/api/v1/auth/refresh` |
 | any | `/health` |
 
 ## Every other request
@@ -105,7 +105,3 @@ only correct for one gateway replica: see [scaling-strategy.md](scaling-strategy
   the browser.
 - One JSON log line per request in `docker compose logs gateway`:
   `time, requestId, method, path, status, durationMs, userId`.
-
-## Not yet implemented
-
-- `POST /api/v1/auth/refresh` in auth-service (the route is already public at the gateway).
