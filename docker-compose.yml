@@ -5,10 +5,14 @@ services:
   rabbitmq:
     image: rabbitmq:3-management
     container_name: rabbitmq
-    ports:
-      - "15672:15672"   # management UI (http://localhost:15672 — guest/guest by default)
+    # Only the gateway publishes a port. To open the management UI (http://localhost:15672,
+    # guest/guest) on your own machine, put this in docker-compose.override.yml (gitignored):
+    #   services:
+    #     rabbitmq:
+    #       ports: ["127.0.0.1:15672:15672"]
     expose:
       - "5672"           # AMQP port, internal only
+      - "15672"          # management UI, internal only
     healthcheck:
       test: ["CMD", "rabbitmqctl", "status"]
       interval: 10s
@@ -131,17 +135,26 @@ services:
   #   expose:
   #     - "4005"
 
-  # gateway:
-  #   build: ./gateway
-  #   container_name: gateway
-  #   env_file: ./gateway/.env
-  #   depends_on:
-  #     - auth-service
-  #     - academic-service
-  #     - finance-service
-  #     - hr-service
-  #   ports:
-  #     - "3000:3000"   # this is the ONLY service exposed to the host — everything goes through it
+  gateway:
+    build: ./gateway
+    container_name: gateway
+    env_file: ./gateway/.env
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      # Compose refuses to start if depends_on names a service that isn't defined, so uncomment
+      # each line below at the same time as that service's block above. service_healthy needs a
+      # HEALTHCHECK in that service's Dockerfile (copy auth-service's); otherwise use service_started.
+      # academic-service:
+      #   condition: service_healthy
+      # finance-service:
+      #   condition: service_healthy
+      # hr-service:
+      #   condition: service_healthy
+      # notification-service:
+      #   condition: service_healthy
+    ports:
+      - "3000:3000"   # the ONLY application port published to the host; everything goes through it
 
 volumes:
   auth-db-data:

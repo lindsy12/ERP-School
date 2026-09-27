@@ -27,6 +27,7 @@ client ──► gateway :3000 ──► auth-service :4001          (auth_db)
 ```
 
 - **Gateway is the only container exposed to the host.** Everything else uses `expose`, reachable only on the Docker network by service name (e.g. `http://auth-service:4001`).
+- **Gateway (`gateway/`)** routes by the static registry in `src/config/services.js` with http-proxy-middleware **v3** (v4 is ESM-only and breaks Jest). Proxies are mounted with `app.use(proxy)` + `pathFilter` so the full path is forwarded; never put `express.json()` before them. All service calls go through `src/utils/serviceAgent.js`, whose non-blocking DNS lookup stops missing services from stalling every request. JWT verification and rate limiting are not implemented yet.
 - **Gateway has no business logic.** It routes, verifies JWTs by delegating to Auth Service, rate-limits (`RATE_LIMIT_*` env), and forwards `x-user-id` / `x-user-role` headers downstream. Business rules belong in the owning service.
 - **Downstream services trust the forwarded `x-user-id` / `x-user-role` headers** for identity and RBAC. They never query auth tables.
 - **Database-per-service:** a service must never read another service's tables. Cross-service data flows only via REST through the Gateway or via RabbitMQ events.
