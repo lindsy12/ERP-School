@@ -1,9 +1,3 @@
-// Placeholder values so config/env.js doesn't refuse to load during tests.
-process.env.DB_HOST = 'localhost';
-process.env.DB_USER = 'test';
-process.env.DB_NAME = 'auth_test';
-process.env.JWT_SECRET = 'test-secret';
-
 const request = require('supertest');
 const app = require('../src/app');
 
@@ -17,10 +11,28 @@ describe('GET /health', () => {
 });
 
 describe('unknown routes', () => {
-  it('return 404 JSON', async () => {
+  it('return 404 with an error code', async () => {
     const res = await request(app).get('/does-not-exist');
 
     expect(res.status).toBe(404);
-    expect(res.body).toEqual({ error: 'Not found' });
+    expect(res.body.error.code).toBe('NOT_FOUND');
+  });
+});
+
+describe('OpenAPI docs', () => {
+  it('lists the auth endpoints', async () => {
+    const res = await request(app).get('/api/v1/auth/openapi.json');
+
+    expect(res.status).toBe(200);
+    expect(Object.keys(res.body.paths)).toEqual(
+      expect.arrayContaining(['/api/v1/auth/login', '/api/v1/auth/me']),
+    );
+  });
+
+  it('serves the Swagger UI', async () => {
+    const res = await request(app).get('/api/v1/auth/docs/');
+
+    expect(res.status).toBe(200);
+    expect(res.text).toContain('swagger-ui');
   });
 });
