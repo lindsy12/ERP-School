@@ -67,8 +67,17 @@ services:
       MYSQL_DATABASE: hr_db
     expose:
       - "3306"
+    ports:
+      # Published to the host (unlike the other db services) so hr-service's
+      # test suite can run from outside docker via `npm test` — see its README.
+      - "3307:3306"
     volumes:
       - hr-db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   notification-db:
     image: mysql:8
@@ -115,15 +124,17 @@ services:
   #   expose:
   #     - "4003"
 
-  # hr-service:
-  #   build: ./services/hr-service
-  #   container_name: hr-service
-  #   env_file: ./services/hr-service/.env
-  #   depends_on:
-  #     - hr-db
-  #     - rabbitmq
-  #   expose:
-  #     - "4004"
+  hr-service:
+    build: ./services/hr-service
+    container_name: hr-service
+    env_file: ./services/hr-service/.env
+    depends_on:
+      hr-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    expose:
+      - "4004"
 
   # notification-service:
   #   build: ./services/notification-service
@@ -149,8 +160,8 @@ services:
       #   condition: service_healthy
       # finance-service:
       #   condition: service_healthy
-      # hr-service:
-      #   condition: service_healthy
+      hr-service:
+        condition: service_healthy
       # notification-service:
       #   condition: service_healthy
     ports:

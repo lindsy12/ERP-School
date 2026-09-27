@@ -25,6 +25,30 @@ jobs:
           - services/hr-service
           - services/notification-service
           - gateway
+    # hr-service's tests run against a real MySQL rather than an in-memory
+    # SQLite fallback (no native node-gyp build required, dialect matches
+    # prod) — see services/hr-service/README.md. Other services can point
+    # their own tests at this same instance with a different DB_NAME, or
+    # ignore it entirely if they don't need a DB in tests yet.
+    services:
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ROOT_PASSWORD: rootpass
+          MYSQL_DATABASE: hr_db_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -prootpass"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: rootpass
+      DB_NAME: hr_db_test
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
