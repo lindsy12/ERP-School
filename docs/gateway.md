@@ -73,6 +73,7 @@ Same shape as every service: `{ "error": { "code": "...", "message": "..." } }`.
 |---|---|---|
 | 401 | `UNAUTHORIZED` | No `Authorization: Bearer ...` header on a protected route |
 | 401 | `INVALID_TOKEN`, `TOKEN_EXPIRED`, `UNAUTHORIZED` | auth-service rejected the token (its code is passed through; `TOKEN_EXPIRED` means "refresh and retry"; `UNAUTHORIZED` here means the user was disabled or deleted) |
+| 429 | `RATE_LIMITED` | Too many requests (see Rate limits below); `Retry-After` says how many seconds to wait |
 | 404 | `NOT_FOUND` | Path matches no service prefix (after authentication) |
 | 502 | `SERVICE_UNAVAILABLE` | The target service is down or unreachable |
 | 503 | `AUTH_UNAVAILABLE` | auth-service is down, too slow (>3 s), or returned something unusable |
@@ -80,6 +81,21 @@ Same shape as every service: `{ "error": { "code": "...", "message": "..." } }`.
 | 500 | `INTERNAL_ERROR` | Bug in the gateway |
 
 Anything else (400, 403, your own 404s...) comes from your service and is passed through as is.
+
+## Rate limits
+
+Counted per minute (`RATE_LIMIT_WINDOW_MS`) in the gateway, so services don't need their own.
+
+| Limiter | Applies to | Counted per | Default (env var) |
+|---|---|---|---|
+| Login | `POST /api/v1/auth/login` | client IP | 10 (`AUTH_RATE_LIMIT_MAX`) |
+| Refresh | `POST /api/v1/auth/refresh` | client IP (own counter) | 10 (`AUTH_RATE_LIMIT_MAX`) |
+| Global | every other route except `/health` | user id if the token is valid, otherwise client IP | 100 (`RATE_LIMIT_MAX`) |
+
+Responses carry the standard `RateLimit` and `RateLimit-Policy` headers (e.g. `limit=100, remaining=87, reset=41`);
+a 429 also carries `Retry-After`. Every 429 is logged as a JSON line with `event: "rate_limited"`, the
+`requestId` and the `key` (`user:<id>` or `ip:<address>`). Counters live in the gateway's memory, which is
+only correct for one gateway replica: see [scaling-strategy.md](scaling-strategy.md).
 
 ## Also applied to every response
 
@@ -92,5 +108,4 @@ Anything else (400, 403, your own 404s...) comes from your service and is passed
 
 ## Not yet implemented
 
-- Rate limiting (`RATE_LIMIT_*` env vars are reserved for it).
 - `POST /api/v1/auth/refresh` in auth-service (the route is already public at the gateway).

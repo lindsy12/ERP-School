@@ -9,6 +9,8 @@ const stripIdentityHeaders = require('./middleware/stripIdentityHeaders');
 const requestId = require('./middleware/requestId');
 const requestLogger = require('./middleware/requestLogger');
 const authenticate = require('./middleware/authenticate');
+const { requireAuth } = require('./middleware/authenticate');
+const createRateLimiters = require('./middleware/rateLimiters');
 const serviceProxy = require('./middleware/serviceProxy');
 const healthRoutes = require('./routes/health.routes');
 const sendError = require('./utils/sendError');
@@ -21,10 +23,24 @@ function createApp({
   proxyTimeoutMs = config.proxyTimeoutMs,
   healthTimeoutMs = config.healthTimeoutMs,
   corsOrigins = config.corsOrigins,
-  logWrite,
+  rateLimitWindowMs = config.rateLimitWindowMs,
+  rateLimitMax = config.rateLimitMax,
+  authRateLimitMax = config.authRateLimitMax,
+  trustProxy = config.trustProxy,
+  logWrite = (line) => process.stdout.write(`${line}
+`),
 } = {}) {
   const app = express();
   app.disable('x-powered-by');
+  // Which address is "the client"? See TRUST_PROXY in .env.example and docs/scaling-strategy.md.
+  app.set('trust proxy', trustProxy);
+
+  const { authLimiter, globalLimiter } = createRateLimiters({
+    windowMs: rateLimitWindowMs,
+    max: rateLimitMax,
+    authMax: authRateLimitMax,
+    write: logWrite,
+  });
 
   // 1. FIRST: delete identity headers a client may have forged (see the file for why).
   app.use(stripIdentityHeaders);
@@ -39,8 +55,16 @@ function createApp({
       maxAge: 600,
     }),
   );
-  // 2. Every non-public request needs a valid token; sets the real identity headers.
+  // 2. Strict per-IP limits on the routes that accept passwords / refresh tokens.
+  app.post('/api/v1/auth/login', authLimiter('login'));
+  app.post('/api/v1/auth/refresh', authLimiter('refresh'));
+
+  // 3. Work out who the caller is (valid token -> req.user + identity headers)...
   app.use(authenticate({ verifyUrl, timeoutMs: verifyTimeoutMs, publicRoutes }));
+  // 4. ...count the request per user (or per IP, including requests with bad tokens)...
+  app.use(globalLimiter);
+  // 5. ...and only then reject the ones without a valid token.
+  app.use(requireAuth);
 
   app.use('/health', healthRoutes({ services, timeoutMs: healthTimeoutMs }));
 

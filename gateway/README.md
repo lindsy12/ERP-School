@@ -20,7 +20,8 @@ is reachable only from inside the Docker network.
 - **Authentication:** every route except those in `src/config/publicRoutes.js` needs `Authorization: Bearer <token>`,
   checked with auth-service `GET /api/v1/auth/verify`; the gateway then adds `x-user-id`, `x-user-role`, `x-tenant-id`.
 - **Security:** helmet headers, CORS limited to `CORS_ORIGIN`, client-sent identity headers are always removed first.
-- Not yet: rate limiting.
+- **Rate limiting:** 10/min per IP on login and on refresh, 100/min per user (or per IP) elsewhere; 429 `RATE_LIMITED`.
+  Limits and `TRUST_PROXY` come from `.env`. In-memory counters: one replica only (see `docs/scaling-strategy.md`).
 
 What services receive and can trust is documented for the whole team in [docs/gateway.md](../docs/gateway.md).
 
