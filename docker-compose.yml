@@ -26,6 +26,12 @@ services:
       - "3306"
     volumes:
       - auth-db-data:/var/lib/mysql
+    healthcheck:
+      # 127.0.0.1 (TCP) only answers once MySQL has finished its first-time setup
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   academic-db:
     image: mysql:8
@@ -75,14 +81,15 @@ services:
   # NOTE: each Dockerfile below doesn't exist yet — add one per service as you build it.
   # Uncomment each block once that service has a working Dockerfile.
 
-  # auth-service:
-  #   build: ./services/auth-service
-  #   container_name: auth-service
-  #   env_file: ./services/auth-service/.env
-  #   depends_on:
-  #     - auth-db
-  #   expose:
-  #     - "4001"
+  auth-service:
+    build: ./services/auth-service
+    container_name: auth-service
+    env_file: ./services/auth-service/.env
+    depends_on:
+      auth-db:
+        condition: service_healthy   # wait until MySQL is actually accepting connections
+    expose:
+      - "4001"
 
   # academic-service:
   #   build: ./services/academic-service
