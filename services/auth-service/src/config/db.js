@@ -10,6 +10,7 @@ const pool = mysql.createPool({
   password: db.password,
   database: db.database,
   connectionLimit: 10,
+  timezone: 'Z', // store and read dates as UTC
 });
 
 module.exports = pool;
