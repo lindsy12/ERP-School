@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project state
 
-School ERP built as microservices for the SEN4121 final exam (team of 5). Mostly a **scaffold**: only `services/auth-service` has code so far (Express 5 + mysql2 + Jest/Supertest, `GET /health`, Dockerfile, enabled in compose). The other services have no `package.json`, `src/`, or `Dockerfile` yet, their compose blocks are commented out, and the API contract files in `docs/api-contracts/` are empty templates. When adding a service's code, also add its `Dockerfile`, uncomment its compose block, and make sure `npm test` works there (CI runs it).
+School ERP built as microservices for the SEN4121 final exam (team of 5). Mostly a **scaffold**: only `services/auth-service` has code so far (Express 5 + mysql2 + bcryptjs + jsonwebtoken + Jest/Supertest; `POST /api/v1/auth/login`, `GET /api/v1/auth/me`, `GET /health`; SQL migrations in `src/db/migrations/` run with `npm run migrate`, first admin via `npm run seed`). The other services have no `package.json`, `src/`, or `Dockerfile` yet, their compose blocks are commented out, and their API contract files in `docs/api-contracts/` are empty templates. When adding a service's code, also add its `Dockerfile`, uncomment its compose block, and make sure `npm test` works there (CI runs it).
 
 ## Commands
 
@@ -12,7 +12,7 @@ Stack is Node.js 20 + MySQL 8 + RabbitMQ (implied by CI and `.env.example` files
 
 - Whole system: `docker compose up --build` (copy each folder's `.env.example` to `.env` first; `.env` is gitignored)
 - One service, from its folder (`gateway/` or `services/<name>/`): `npm install`, then `npm run dev`
-- Tests, per service: `npm test` — CI (`.github/workflows/ci.yml`) runs `npm ci && npm test` and then `docker build` for each of the 6 folders on pushes/PRs to `main`, so every service needs a `package-lock.json`, a `test` script, and a `Dockerfile`
+- Tests, per service: `npm test` — CI (`.github/workflows/ci.yml`) runs `npm ci && npm test` and then `docker build` for each of the 6 folders on pushes/PRs to `main` (Node 20, `fail-fast: false`). A folder without `package.json` / `Dockerfile` is skipped; once it has one, it also needs a committed `package-lock.json` and a `test` script
 - RabbitMQ management UI: http://localhost:15672 (guest/guest)
 
 ## Architecture
@@ -32,6 +32,15 @@ client ──► gateway :3000 ──► auth-service :4001          (auth_db)
 - **Database-per-service:** a service must never read another service's tables. Cross-service data flows only via REST through the Gateway or via RabbitMQ events.
 - Auth Service handles bcrypt hashing, access and refresh tokens with rotation (`JWT_SECRET`, `ACCESS_TOKEN_MINUTES=15`, `REFRESH_TOKEN_DAYS=7`), account lockout, and RBAC roles. User classes: Super Admin, Admin, Staff, Student.
 - Each service folder has `src/` (backend) and `client/` (that module's own frontend pages).
+
+### HTTP conventions (set by auth-service; follow them in other services)
+- Routes live under `/api/v1/<service>/...`; `GET /health` stays unprefixed for Docker health checks.
+- Layers: `routes/` → `controllers/` (HTTP only) → `services/` (business rules) → `models/` (SQL). Input checks live in `validators/`.
+- Every error is `{ "error": { "code", "message", "details"? } }`. Throw `utils/httpError.js` and let `middleware/errorHandler.js` format it. The code list is in `docs/api-contracts/auth-service.md`.
+- Each service serves its OpenAPI spec (`src/docs/openapi.js`) with Swagger UI at `/api/v1/<service>/docs` and `/api/v1/<service>/openapi.json`. Update the spec and the contract file together.
+- `services/auth-service/src/middleware/requireRole.js` is self-contained and meant to be copied: `requireRole('ADMIN', 'SUPER_ADMIN')`. It needs `req.user`, which other services set from the gateway's `x-user-id` / `x-user-role` headers (see the file's comment).
+- Schema changes are new numbered files in `src/db/migrations/`. Never edit a migration that has been pushed or merged; teammates may already have run it.
+- Tests mock the `models/` modules, so `npm test` needs no database. Shared test env vars are in `tests/setupEnv.js`.
 
 ### Events
 

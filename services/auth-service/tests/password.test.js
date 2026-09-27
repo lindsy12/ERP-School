@@ -1,9 +1,3 @@
-process.env.DB_HOST = 'localhost';
-process.env.DB_USER = 'test';
-process.env.DB_NAME = 'auth_test';
-process.env.JWT_SECRET = 'test-secret';
-process.env.BCRYPT_SALT_ROUNDS = '4'; // fast hashing for tests only
-
 const { hashPassword, verifyPassword } = require('../src/utils/password');
 
 describe('password hashing', () => {
