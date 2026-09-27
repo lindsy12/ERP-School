@@ -11,6 +11,11 @@
     "seed": "node src/db/seed.js",
     "test": "jest"
   },
+  "jest": {
+    "setupFiles": [
+      "<rootDir>/tests/setupEnv.js"
+    ]
+  },
   "engines": {
     "node": ">=20"
   },
@@ -18,7 +23,9 @@
     "bcryptjs": "^3.0.3",
     "dotenv": "^18.0.4",
     "express": "^5.2.1",
-    "mysql2": "^3.24.4"
+    "jsonwebtoken": "^9.0.3",
+    "mysql2": "^3.24.4",
+    "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
     "jest": "^30.5.2",
