@@ -17,8 +17,12 @@ is reachable only from inside the Docker network.
 - **Errors:** service down → `502 SERVICE_UNAVAILABLE`; no answer within `PROXY_TIMEOUT_MS` → `504 GATEWAY_TIMEOUT`.
 - **Correlation ID:** `x-request-id` is kept or generated, forwarded, and returned; one JSON log line per request.
 - **`GET /health`:** the gateway plus every service's `/health` (`ok` or `degraded`, always 200).
-- **Security:** helmet headers, CORS limited to `CORS_ORIGIN`, client-sent `x-user-*` headers are removed.
-- Not yet: JWT verification and rate limiting.
+- **Authentication:** every route except those in `src/config/publicRoutes.js` needs `Authorization: Bearer <token>`,
+  checked with auth-service `GET /api/v1/auth/verify`; the gateway then adds `x-user-id`, `x-user-role`, `x-tenant-id`.
+- **Security:** helmet headers, CORS limited to `CORS_ORIGIN`, client-sent identity headers are always removed first.
+- Not yet: rate limiting.
+
+What services receive and can trust is documented for the whole team in [docs/gateway.md](../docs/gateway.md).
 
 Never add `express.json()` (or any body parser) before the proxies: it consumes the request body
 and POSTs would reach services empty and time out.

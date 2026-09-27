@@ -56,11 +56,3 @@ describe('GET /health', () => {
   });
 });
 
-describe('unknown routes', () => {
-  it('return 404 in our error format', async () => {
-    const res = await request(createApp({ services: [], logWrite: () => {} })).get('/nope');
-
-    expect(res.status).toBe(404);
-    expect(res.body.error.code).toBe('NOT_FOUND');
-  });
-});

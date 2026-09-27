@@ -28,6 +28,7 @@ module.exports = {
   },
   proxyTimeoutMs: toInt(process.env.PROXY_TIMEOUT_MS, 10000),
   healthTimeoutMs: toInt(process.env.HEALTH_TIMEOUT_MS, 2000),
+  verifyTimeoutMs: toInt(process.env.VERIFY_TIMEOUT_MS, 3000),
   corsOrigins: (process.env.CORS_ORIGIN || '')
     .split(',')
     .map((origin) => origin.trim())

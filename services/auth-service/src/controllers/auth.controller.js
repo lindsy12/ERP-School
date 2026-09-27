@@ -13,4 +13,12 @@ async function me(req, res) {
   res.json(await authService.getMe(req.user.id));
 }
 
-module.exports = { login, me };
+// For the gateway: who does this token belong to? Checks the database too, so a user who was
+// disabled or deleted is rejected immediately, not only when their token expires.
+async function verify(req, res) {
+  const user = await authService.getMe(req.user.id);
+  res.set('Cache-Control', 'no-store');
+  res.json({ id: user.id, role: user.role, tenant_id: user.tenant_id });
+}
+
+module.exports = { login, me, verify };

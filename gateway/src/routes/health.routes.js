@@ -1,32 +1,13 @@
 // GET /health: the gateway's own status plus every registered service's /health.
 // Always answers 200 while the gateway itself is running; a down service makes the
 // overall status "degraded" instead of failing the whole check.
-const http = require('http');
 const { Router } = require('express');
-const { serviceAgent } = require('../utils/serviceAgent');
-
-// Resolves with the HTTP status code, or rejects (code TIMEOUT, ECONNREFUSED, ENOTFOUND...).
-function getStatus(url, timeoutMs) {
-  return new Promise((resolve, reject) => {
-    const req = http.get(url, { agent: serviceAgent }, (res) => {
-      clearTimeout(timer);
-      res.resume(); // we only need the status; discard the body
-      resolve(res.statusCode);
-    });
-    const timer = setTimeout(() => {
-      req.destroy(Object.assign(new Error('timeout'), { code: 'TIMEOUT' }));
-    }, timeoutMs);
-    req.on('error', (err) => {
-      clearTimeout(timer);
-      reject(err);
-    });
-  });
-}
+const httpGet = require('../utils/httpGet');
 
 async function checkService(service, timeoutMs) {
   const start = Date.now();
   try {
-    const status = await getStatus(service.healthUrl, timeoutMs);
+    const { status } = await httpGet(service.healthUrl, { timeoutMs });
     const latencyMs = Date.now() - start;
     return status === 200
       ? { status: 'up', latencyMs }

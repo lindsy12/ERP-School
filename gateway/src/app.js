@@ -4,15 +4,20 @@ const helmet = require('helmet');
 const cors = require('cors');
 const config = require('./config/env');
 const registry = require('./config/services');
+const defaultPublicRoutes = require('./config/publicRoutes');
+const stripIdentityHeaders = require('./middleware/stripIdentityHeaders');
 const requestId = require('./middleware/requestId');
 const requestLogger = require('./middleware/requestLogger');
-const stripIdentityHeaders = require('./middleware/stripIdentityHeaders');
+const authenticate = require('./middleware/authenticate');
 const serviceProxy = require('./middleware/serviceProxy');
 const healthRoutes = require('./routes/health.routes');
 const sendError = require('./utils/sendError');
 
 function createApp({
   services = registry,
+  verifyUrl = `${config.serviceUrls.auth}/api/v1/auth/verify`,
+  verifyTimeoutMs = config.verifyTimeoutMs,
+  publicRoutes = defaultPublicRoutes,
   proxyTimeoutMs = config.proxyTimeoutMs,
   healthTimeoutMs = config.healthTimeoutMs,
   corsOrigins = config.corsOrigins,
@@ -21,9 +26,12 @@ function createApp({
   const app = express();
   app.disable('x-powered-by');
 
+  // 1. FIRST: delete identity headers a client may have forged (see the file for why).
+  app.use(stripIdentityHeaders);
   app.use(requestId);
   app.use(requestLogger({ write: logWrite }));
   app.use(helmet());
+  // CORS before authentication: browser preflight (OPTIONS) requests never carry a token.
   app.use(
     cors({
       origin: corsOrigins.length > 0 ? corsOrigins : false,
@@ -31,7 +39,8 @@ function createApp({
       maxAge: 600,
     }),
   );
-  app.use(stripIdentityHeaders);
+  // 2. Every non-public request needs a valid token; sets the real identity headers.
+  app.use(authenticate({ verifyUrl, timeoutMs: verifyTimeoutMs, publicRoutes }));
 
   app.use('/health', healthRoutes({ services, timeoutMs: healthTimeoutMs }));
 

@@ -9,6 +9,7 @@ The OpenAPI spec lives in `services/auth-service/src/docs/openapi.js`; keep this
 |---|---|---|---|---|
 | POST | `/api/v1/auth/login` | `{ tenant_id: uuid, email: string, password: string }` | 200 `{ access_token, refresh_token, token_type: "Bearer", expires_in: 900 }` | 400 `VALIDATION_ERROR` (with `details`) or `INVALID_JSON`. 401 `INVALID_CREDENTIALS` "Invalid email or password", identical for unknown email, wrong password and disabled account. Response has `Cache-Control: no-store`. |
 | GET | `/api/v1/auth/me` | none; header `Authorization: Bearer <access_token>` | 200 `{ id, email, role, tenant_id }` | 401 `UNAUTHORIZED` (missing/malformed header, or user deleted/disabled), `INVALID_TOKEN`, `TOKEN_EXPIRED`. Never returns the password hash. |
+| GET | `/api/v1/auth/verify` | none; header `Authorization: Bearer <access_token>` | 200 `{ id, role, tenant_id }` | **For the gateway only** (see `docs/gateway.md`): it turns the result into `x-user-id`, `x-user-role`, `x-tenant-id`. Same 401 codes as `/me`, so disabled/deleted users are rejected at once. `Cache-Control: no-store`. |
 | GET | `/health` | none | 200 `{ "status": "ok", "service": "auth" }` | Not under the `/api/v1` prefix; used by Docker's health check. |
 
 ### Access token (JWT)

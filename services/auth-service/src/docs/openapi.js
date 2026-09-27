@@ -85,6 +85,33 @@ module.exports = {
         },
       },
     },
+    '/api/v1/auth/verify': {
+      get: {
+        tags: ['Auth'],
+        summary: 'Resolve an access token to user identity (used by the gateway)',
+        description:
+          'The gateway calls this on every protected request and turns the result into the ' +
+          '`x-user-id`, `x-user-role` and `x-tenant-id` headers it forwards. Also rejects users ' +
+          'who were disabled or deleted after the token was issued.',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: {
+            description: 'Token is valid and the user is active',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/Identity' } } },
+          },
+          401: {
+            description: 'Same cases and codes as `GET /api/v1/auth/me`',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/Error' },
+                example: { error: { code: 'INVALID_TOKEN', message: 'Access token is invalid' } },
+              },
+            },
+          },
+          500: errorResponse('Unexpected server error', 'INTERNAL_ERROR', 'Internal server error'),
+        },
+      },
+    },
     '/health': {
       get: {
         tags: ['Health'],
@@ -155,6 +182,15 @@ module.exports = {
         properties: {
           id: { type: 'string', format: 'uuid' },
           email: { type: 'string', format: 'email' },
+          role: { type: 'string', enum: ['SUPER_ADMIN', 'ADMIN', 'STAFF', 'STUDENT'] },
+          tenant_id: { type: 'string', format: 'uuid' },
+        },
+      },
+      Identity: {
+        type: 'object',
+        required: ['id', 'role', 'tenant_id'],
+        properties: {
+          id: { type: 'string', format: 'uuid' },
           role: { type: 'string', enum: ['SUPER_ADMIN', 'ADMIN', 'STAFF', 'STUDENT'] },
           tenant_id: { type: 'string', format: 'uuid' },
         },
