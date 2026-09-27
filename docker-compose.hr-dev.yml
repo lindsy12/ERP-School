@@ -1,0 +1,10 @@
+# Dev-only overlay: publishes hr-service straight to the host so its UI and API can be
+# used before the gateway exists. NOT for the final deployment — there the gateway is
+# the only container exposed (hr-service trusts the gateway's x-user-* headers).
+#
+#   docker compose -f docker-compose.yml -f docker-compose.hr-dev.yml up -d --build
+#   -> http://localhost:4004/hr/
+services:
+  hr-service:
+    ports:
+      - "4004:4004"
