@@ -36,6 +36,9 @@ beforeEach(() => {
     const { password_hash: _omit, ...withoutHash } = user;
     return withoutHash;
   });
+  userModel.recordFailedLogin.mockImplementation(async (id, computeNext) =>
+    computeNext({ failed_login_attempts: 0, locked_until: null }),
+  );
   refreshTokenModel.startFamily.mockResolvedValue();
 });
 

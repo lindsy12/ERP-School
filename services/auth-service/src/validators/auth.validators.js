@@ -54,4 +54,12 @@ function validateRefreshToken(body) {
   return refreshToken;
 }
 
-module.exports = { validateLogin, validateRefreshToken };
+// Path parameter :id of /users/:id/...
+function validateUserId(id) {
+  if (!UUID_RE.test(id)) {
+    throw new HttpError(400, 'VALIDATION_ERROR', 'Request is invalid', [{ field: 'id', message: 'must be a UUID' }]);
+  }
+  return id;
+}
+
+module.exports = { validateLogin, validateRefreshToken, validateUserId };

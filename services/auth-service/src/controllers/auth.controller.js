@@ -1,6 +1,6 @@
 // Translates between HTTP and the auth service: read the request, call the logic, send the response.
 const authService = require('../services/auth.service');
-const { validateLogin, validateRefreshToken } = require('../validators/auth.validators');
+const { validateLogin, validateRefreshToken, validateUserId } = require('../validators/auth.validators');
 
 async function login(req, res) {
   const credentials = validateLogin(req.body);
@@ -20,6 +20,11 @@ async function logout(req, res) {
   res.status(204).end();
 }
 
+async function unlockUser(req, res) {
+  await authService.unlockUser(req.user, validateUserId(req.params.id));
+  res.status(204).end();
+}
+
 async function me(req, res) {
   res.json(await authService.getMe(req.user.id));
 }
@@ -32,4 +37,4 @@ async function verify(req, res) {
   res.json({ id: user.id, role: user.role, tenant_id: user.tenant_id });
 }
 
-module.exports = { login, refresh, logout, me, verify };
+module.exports = { login, refresh, logout, unlockUser, me, verify };

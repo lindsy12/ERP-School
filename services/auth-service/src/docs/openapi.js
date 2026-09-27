@@ -30,7 +30,9 @@ module.exports = {
         description:
           'Returns a 15-minute access token and a 7-day refresh token. ' +
           'Unknown email, wrong password and disabled account all return the same 401 ' +
-          'so the response never reveals which emails are registered.',
+          'so the response never reveals which emails are registered. After 5 wrong passwords in a row ' +
+          '(`MAX_FAILED_ATTEMPTS`) the account is locked for 15 minutes (`LOCKOUT_MINUTES`): every login, ' +
+          'even with the right password, gets 423 until then. A successful login resets the count.',
         requestBody: {
           required: true,
           content: { 'application/json': { schema: { $ref: '#/components/schemas/LoginRequest' } } },
@@ -56,6 +58,12 @@ module.exports = {
             },
           },
           401: errorResponse('Wrong credentials', 'INVALID_CREDENTIALS', 'Invalid email or password'),
+          423: errorResponse(
+            'Too many failed logins: locked until the lockout period ends or an admin unlocks it. ' +
+              'Also returned by the attempt that causes the lock.',
+            'ACCOUNT_LOCKED',
+            'Account temporarily locked',
+          ),
           500: errorResponse('Unexpected server error', 'INTERNAL_ERROR', 'Internal server error'),
         },
       },
@@ -108,6 +116,25 @@ module.exports = {
             'INVALID_REFRESH_TOKEN',
             'Refresh token is invalid or expired',
           ),
+          500: errorResponse('Unexpected server error', 'INTERNAL_ERROR', 'Internal server error'),
+        },
+      },
+    },
+    '/api/v1/auth/users/{id}/unlock': {
+      post: {
+        tags: ['Auth'],
+        summary: 'Unlock an account locked by failed logins (ADMIN, SUPER_ADMIN)',
+        description:
+          "Resets the failed-login count and removes the lock. Only users of the caller's own school " +
+          '(tenant); others get 404. Logged as `auth.account.unlocked`.',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        responses: {
+          204: { description: 'Unlocked (also when the account was not locked)' },
+          400: errorResponse('`id` is not a UUID', 'VALIDATION_ERROR', 'Request is invalid'),
+          401: errorResponse('Missing or invalid access token', 'UNAUTHORIZED', 'Missing or malformed Authorization header'),
+          403: errorResponse('Caller is not ADMIN or SUPER_ADMIN', 'FORBIDDEN', 'You do not have permission to perform this action'),
+          404: errorResponse("No such user in the caller's school", 'NOT_FOUND', 'User not found'),
           500: errorResponse('Unexpected server error', 'INTERNAL_ERROR', 'Internal server error'),
         },
       },
@@ -268,6 +295,7 @@ module.exports = {
                   'VALIDATION_ERROR',
                   'INVALID_JSON',
                   'INVALID_CREDENTIALS',
+                  'ACCOUNT_LOCKED',
                   'UNAUTHORIZED',
                   'INVALID_TOKEN',
                   'TOKEN_EXPIRED',

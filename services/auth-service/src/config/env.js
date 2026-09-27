@@ -10,6 +10,15 @@ if (missing.length > 0) {
 
 const toInt = (value, fallback) => (value === undefined ? fallback : Number.parseInt(value, 10));
 
+// For settings where 0, a negative number or a typo would silently switch a protection off.
+function positiveInt(name, value, fallback) {
+  const parsed = toInt(value, fallback);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    throw new Error(`${name} must be a positive integer`);
+  }
+  return parsed;
+}
+
 module.exports = {
   nodeEnv: process.env.NODE_ENV || 'development',
   port: toInt(process.env.PORT, 4001),
@@ -27,7 +36,12 @@ module.exports = {
   },
   security: {
     bcryptSaltRounds: toInt(process.env.BCRYPT_SALT_ROUNDS, 10),
-    maxLoginAttempts: toInt(process.env.MAX_LOGIN_ATTEMPTS, 5),
-    lockoutMinutes: toInt(process.env.LOCKOUT_MINUTES, 15),
+    // MAX_LOGIN_ATTEMPTS is the old name, still read so existing .env files keep working.
+    maxFailedAttempts: positiveInt(
+      'MAX_FAILED_ATTEMPTS',
+      process.env.MAX_FAILED_ATTEMPTS ?? process.env.MAX_LOGIN_ATTEMPTS,
+      5,
+    ),
+    lockoutMinutes: positiveInt('LOCKOUT_MINUTES', process.env.LOCKOUT_MINUTES, 15),
   },
 };
