@@ -56,6 +56,11 @@ services:
       - finance-db-data:/var/lib/mysql
     ports:
       - "3308:3306"
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   hr-db:
     image: mysql:8
@@ -103,15 +108,24 @@ services:
   #   expose:
   #     - "4002"
 
-  # finance-service:
-  #   build: ./services/finance-service
-  #   container_name: finance-service
-  #   env_file: ./services/finance-service/.env
-  #   depends_on:
-  #     - finance-db
-  #     - rabbitmq
-  #   expose:
-  #     - "4003"
+  finance-service:
+    build: ./services/finance-service
+    container_name: finance-service
+    environment:
+      PORT: 4003
+      DB_HOST: finance-db
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpass}
+      DB_NAME: finance_db
+      RABBITMQ_URL: amqp://rabbitmq:5672
+    depends_on:
+      finance-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    expose:
+      - "4003"
 
   # hr-service:
   #   build: ./services/hr-service
@@ -133,17 +147,21 @@ services:
   #   expose:
   #     - "4005"
 
-  # gateway:
-  #   build: ./gateway
-  #   container_name: gateway
-  #   env_file: ./gateway/.env
-  #   depends_on:
-  #     - auth-service
-  #     - academic-service
-  #     - finance-service
-  #     - hr-service
-  #   ports:
-  #     - "3000:3000"   # this is the ONLY service exposed to the host — everything goes through it
+  gateway:
+    build: ./gateway
+    container_name: gateway
+    environment:
+      PORT: 3000
+      AUTH_SERVICE_URL: http://auth-service:4001
+      ACADEMIC_SERVICE_URL: http://academic-service:4002
+      FINANCE_SERVICE_URL: http://finance-service:4003
+      HR_SERVICE_URL: http://hr-service:4004
+      NOTIFICATION_SERVICE_URL: http://notification-service:4005
+    depends_on:
+      - auth-service
+      - finance-service
+    ports:
+      - "3000:3000"
 
 volumes:
   auth-db-data:
