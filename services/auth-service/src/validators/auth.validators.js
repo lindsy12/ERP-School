@@ -6,7 +6,6 @@ const { MAX_PASSWORD_BYTES } = require('../utils/password');
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_EMAIL_LENGTH = 255;
-const MAX_REFRESH_TOKEN_LENGTH = 128; // issued tokens are 43 chars; anything far longer is junk
 
 function validateLogin(body) {
   if (typeof body !== 'object' || body === null || Array.isArray(body)) {
@@ -38,28 +37,4 @@ function validateLogin(body) {
   return { tenantId, email: cleanEmail, password };
 }
 
-// Body of /refresh and /logout: { refresh_token }.
-function validateRefreshToken(body) {
-  if (typeof body !== 'object' || body === null || Array.isArray(body)) {
-    throw new HttpError(400, 'VALIDATION_ERROR', 'Request body must be a JSON object');
-  }
-
-  const { refresh_token: refreshToken } = body;
-  if (typeof refreshToken !== 'string' || refreshToken.length === 0 || refreshToken.length > MAX_REFRESH_TOKEN_LENGTH) {
-    throw new HttpError(400, 'VALIDATION_ERROR', 'Request body is invalid', [
-      { field: 'refresh_token', message: 'is required' },
-    ]);
-  }
-
-  return refreshToken;
-}
-
-// Path parameter :id of /users/:id/...
-function validateUserId(id) {
-  if (!UUID_RE.test(id)) {
-    throw new HttpError(400, 'VALIDATION_ERROR', 'Request is invalid', [{ field: 'id', message: 'must be a UUID' }]);
-  }
-  return id;
-}
-
-module.exports = { validateLogin, validateRefreshToken, validateUserId };
+module.exports = { validateLogin };

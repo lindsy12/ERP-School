@@ -36,9 +36,6 @@ beforeEach(() => {
     const { password_hash: _omit, ...withoutHash } = user;
     return withoutHash;
   });
-  userModel.recordFailedLogin.mockImplementation(async (id, computeNext) =>
-    computeNext({ failed_login_attempts: 0, locked_until: null }),
-  );
   refreshTokenModel.startFamily.mockResolvedValue();
 });
 
@@ -197,40 +194,5 @@ describe('GET /api/v1/auth/me', () => {
 
     expect(res.status).toBe(401);
     expect(res.body.error.code).toBe('UNAUTHORIZED');
-  });
-});
-
-describe('GET /api/v1/auth/verify', () => {
-  const verify = (authorization) => {
-    const req = request(app).get('/api/v1/auth/verify');
-    return authorization ? req.set('Authorization', authorization) : req;
-  };
-
-  it('returns only id, role and tenant_id for a valid token', async () => {
-    const { body: tokens } = await login({ tenant_id: TENANT_ID, email: user.email, password: PASSWORD });
-
-    const res = await verify(`Bearer ${tokens.access_token}`);
-
-    expect(res.status).toBe(200);
-    expect(res.headers['cache-control']).toBe('no-store');
-    expect(res.body).toEqual({ id: user.id, role: 'ADMIN', tenant_id: TENANT_ID });
-  });
-
-  it('401 without a token', async () => {
-    const res = await verify();
-
-    expect(res.status).toBe(401);
-    expect(res.body.error.code).toBe('UNAUTHORIZED');
-  });
-
-  it('401 for a disabled user even if the token is still valid', async () => {
-    const { body: tokens } = await login({ tenant_id: TENANT_ID, email: user.email, password: PASSWORD });
-    user.is_active = 0;
-    try {
-      const res = await verify(`Bearer ${tokens.access_token}`);
-      expect(res.status).toBe(401);
-    } finally {
-      user.is_active = 1;
-    }
   });
 });
