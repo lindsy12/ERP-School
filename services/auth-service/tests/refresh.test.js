@@ -14,12 +14,13 @@ const TENANT_ID = '11111111-1111-1111-1111-111111111111';
 const PASSWORD = 'Correct-Password-1';
 const sha256 = (token) => crypto.createHash('sha256').update(token).digest('hex');
 let user;
+let otherUser;
 
-// In-memory stand-in for the token_families and refresh_tokens tables. withTransaction restores
+// In-memory stand-in for the token_families, refresh_tokens and revoked_access_tokens tables. withTransaction restores
 // a snapshot if the work throws, like a real rollback.
 let db;
 function fakeTokenTables() {
-  db = { families: new Map(), tokens: new Map() };
+  db = { families: new Map(), tokens: new Map(), revokedJtis: new Set() };
 
   refreshTokenModel.startFamily.mockImplementation(async ({ familyId, userId, tokenId, tokenHash, expiresAt }) => {
     db.families.set(familyId, { id: familyId, user_id: userId, revoked_at: null });
@@ -48,6 +49,11 @@ function fakeTokenTables() {
     },
   };
 
+  refreshTokenModel.revokeAccessToken.mockImplementation(async ({ jti }) => {
+    db.revokedJtis.add(jti);
+  });
+  refreshTokenModel.isAccessTokenRevoked.mockImplementation(async (jti) => db.revokedJtis.has(jti));
+
   refreshTokenModel.withTransaction.mockImplementation(async (work) => {
     const snapshot = structuredClone(db);
     try {
@@ -70,6 +76,7 @@ beforeAll(async () => {
     is_active: 1,
     role: 'ADMIN',
   };
+  otherUser = { id: crypto.randomUUID(), tenant_id: TENANT_ID, email: 'student@school.test', is_active: 1, role: 'STUDENT' };
 });
 
 beforeEach(() => {
@@ -78,6 +85,7 @@ beforeEach(() => {
     tenantId === user.tenant_id && email === user.email ? user : null,
   );
   userModel.findById.mockImplementation(async (id) => {
+    if (id === otherUser.id) return otherUser;
     if (id !== user.id) return null;
     const { password_hash: _omit, ...withoutHash } = user;
     return withoutHash;
@@ -212,11 +220,31 @@ describe('POST /api/v1/auth/logout', () => {
     expectRejected(await refresh(second.refresh_token));
   });
 
-  it('is safe to repeat', async () => {
-    const tokens = await login();
-    await logout(tokens.access_token, tokens.refresh_token);
+  it('ends the access token used for the call at once, but not the other sessions', async () => {
+    const phone = await login();
+    const laptop = await login();
+    const me = (accessToken) => request(app).get('/api/v1/auth/me').set('Authorization', `Bearer ${accessToken}`);
 
-    expect((await logout(tokens.access_token, tokens.refresh_token)).status).toBe(204);
+    await logout(phone.access_token, phone.refresh_token);
+
+    const res = await me(phone.access_token);
+    expect(res.status).toBe(401);
+    expect(res.body.error).toEqual({ code: 'INVALID_TOKEN', message: 'Access token has been revoked' });
+    const claims = jwt.decode(phone.access_token);
+    expect(refreshTokenModel.revokeAccessToken).toHaveBeenCalledWith({
+      jti: claims.jti,
+      userId: user.id,
+      expiresAt: new Date(claims.exp * 1000),
+    });
+    expect((await me(laptop.access_token)).status).toBe(200);
+  });
+
+  it('is safe to repeat for an ended session (from another session of the same user)', async () => {
+    const phone = await login();
+    const laptop = await login();
+    await logout(phone.access_token, phone.refresh_token);
+
+    expect((await logout(laptop.access_token, phone.refresh_token)).status).toBe(204);
   });
 
   it('requires an access token', async () => {
@@ -233,7 +261,7 @@ describe('POST /api/v1/auth/logout', () => {
     const victim = await login();
     const otherUserToken = jwt.sign({ role: 'STUDENT', tenant_id: TENANT_ID }, 'test-secret', {
       algorithm: 'HS256',
-      subject: crypto.randomUUID(),
+      subject: otherUser.id,
       expiresIn: 60,
     });
 

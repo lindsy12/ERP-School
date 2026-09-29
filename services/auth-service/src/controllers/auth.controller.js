@@ -1,6 +1,6 @@
 // Translates between HTTP and the auth service: read the request, call the logic, send the response.
 const authService = require('../services/auth.service');
-const { validateLogin, validateRefreshToken, validateUserId } = require('../validators/auth.validators');
+const { validateLogin, validateRefreshToken, validateChangePassword } = require('../validators/auth.validators');
 
 async function login(req, res) {
   const credentials = validateLogin(req.body);
@@ -16,25 +16,28 @@ async function refresh(req, res) {
 }
 
 async function logout(req, res) {
-  await authService.logout(req.user.id, validateRefreshToken(req.body));
+  await authService.logout(req.user, req.accessToken, validateRefreshToken(req.body));
   res.status(204).end();
 }
 
-async function unlockUser(req, res) {
-  await authService.unlockUser(req.user, validateUserId(req.params.id));
-  res.status(204).end();
-}
-
-async function me(req, res) {
-  res.json(await authService.getMe(req.user.id));
-}
-
-// For the gateway: who does this token belong to? Checks the database too, so a user who was
-// disabled or deleted is rejected immediately, not only when their token expires.
-async function verify(req, res) {
-  const user = await authService.getMe(req.user.id);
+async function changePassword(req, res) {
+  const tokens = await authService.changePassword(req.user, validateChangePassword(req.body));
   res.set('Cache-Control', 'no-store');
-  res.json({ id: user.id, role: user.role, tenant_id: user.tenant_id });
+  res.json(tokens);
 }
 
-module.exports = { login, refresh, logout, unlockUser, me, verify };
+// req.user was read from the database by middleware/authenticate.js, so it is current.
+async function me(req, res) {
+  const { id, email, role, tenant_id: tenantId } = req.user;
+  res.json({ id, email, role, tenant_id: tenantId });
+}
+
+// For the gateway: who does this token belong to? Rejects disabled or deleted users and revoked
+// tokens immediately, not only when the token expires (see middleware/authenticate.js).
+async function verify(req, res) {
+  const { id, role, tenant_id: tenantId } = req.user;
+  res.set('Cache-Control', 'no-store');
+  res.json({ id, role, tenant_id: tenantId });
+}
+
+module.exports = { login, refresh, logout, changePassword, me, verify };

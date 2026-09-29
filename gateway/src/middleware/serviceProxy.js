@@ -5,8 +5,13 @@ const sendError = require('../utils/sendError');
 const { serviceAgent } = require('../utils/serviceAgent');
 
 // Matches "/api/v1/auth" and "/api/v1/auth/..." but NOT "/api/v1/authors".
-function matchesPrefix(prefix) {
-  return (pathname) => pathname === prefix || pathname.startsWith(`${prefix}/`);
+const underPrefix = (pathname, prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`);
+
+// The service's API prefix, plus GET/HEAD of its web pages when it has a uiPrefix.
+function matchesService(service) {
+  return (pathname, req) =>
+    underPrefix(pathname, service.prefix) ||
+    (Boolean(service.uiPrefix) && ['GET', 'HEAD'].includes(req.method) && underPrefix(pathname, service.uiPrefix));
 }
 
 function serviceProxy(service, { timeoutMs }) {
@@ -14,7 +19,7 @@ function serviceProxy(service, { timeoutMs }) {
     target: service.baseUrl,
     // Mounted with app.use(proxy) (no path) + pathFilter, so Express never strips the prefix:
     // with app.use('/api/v1/auth', proxy) the service would receive "/login" instead.
-    pathFilter: matchesPrefix(service.prefix),
+    pathFilter: matchesService(service),
     changeOrigin: true,
     agent: serviceAgent, // fast, non-blocking DNS (see utils/serviceAgent.js)
     xfwd: true, // adds X-Forwarded-For/-Proto/-Host so the service knows the real client

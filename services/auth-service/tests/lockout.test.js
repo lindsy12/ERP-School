@@ -15,6 +15,7 @@ const OTHER_TENANT_ID = '22222222-2222-2222-2222-222222222222';
 const PASSWORD = 'Correct-Password-1';
 const LOCKOUT_MS = 15 * 60 * 1000;
 let row; // stands in for the user's row in the users table
+let callers; // other users who send requests (the admins in the unlock tests), by id
 
 beforeAll(async () => {
   row = {
@@ -30,12 +31,14 @@ beforeAll(async () => {
 beforeEach(() => {
   jest.resetAllMocks();
   Object.assign(row, { failed_login_attempts: 0, locked_until: null });
+  callers = new Map();
 
   // Each query returns a copy, like a real database read.
   userModel.findByTenantAndEmail.mockImplementation(async (tenantId, email) =>
     tenantId === row.tenant_id && email === row.email ? { ...row } : null,
   );
   userModel.findById.mockImplementation(async (id) => {
+    if (callers.has(id)) return callers.get(id);
     if (id !== row.id) return null;
     const { password_hash: _omit, ...withoutHash } = row;
     return withoutHash;
@@ -175,12 +178,16 @@ describe('account lockout on POST /api/v1/auth/login', () => {
 });
 
 describe('POST /api/v1/auth/users/:id/unlock', () => {
-  const tokenFor = (role, tenantId = TENANT_ID) =>
-    jwt.sign({ role, tenant_id: tenantId }, 'test-secret', {
+  // An access token for a new, active user with this role and school.
+  const tokenFor = (role, tenantId = TENANT_ID) => {
+    const caller = { id: crypto.randomUUID(), tenant_id: tenantId, email: `${role}@school.test`, is_active: 1, role };
+    callers.set(caller.id, caller);
+    return jwt.sign({ role, tenant_id: tenantId }, 'test-secret', {
       algorithm: 'HS256',
-      subject: crypto.randomUUID(),
+      subject: caller.id,
       expiresIn: 60,
     });
+  };
   const unlock = (token, id = row.id) => {
     const req = request(app).post(`/api/v1/auth/users/${id}/unlock`);
     return token ? req.set('Authorization', `Bearer ${token}`) : req;
