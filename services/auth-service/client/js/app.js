@@ -25,6 +25,8 @@ const visibleRoutes = () => ROUTES.filter((r) => !r.adminOnly || isAdmin());
 
 function showLogin(message) {
   resetMe();
+  // Open dialogs sit in the top layer, above the sign-in page, so close them (e.g. "New account").
+  document.querySelectorAll('dialog[open]').forEach((d) => d.close());
   $('shell').hidden = true;
   $('login').hidden = false;
   $('login-msg').textContent = message || '';
