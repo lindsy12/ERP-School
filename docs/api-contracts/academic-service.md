@@ -17,6 +17,13 @@ Every error response has the shape `{ "error": "message" }`. A request body that
 | DELETE | `/api/v1/courses/:id` | — | `204` (no body) | Also removes this course's own prerequisite links. `404` not found; `409` another course still lists it as a prerequisite. |
 | POST | `/api/v1/enrollments` | `{ studentId*: int, courseId*: int, semesterId*: int }` | `201` Enrollment | Publishes `academic.student.enrolled` after the row is saved. `400` missing/invalid field or student/course/semester doesn't exist; `409` prerequisites not met (body also has `missingPrerequisites: [{ id, code, title }]`) or already enrolled in this course this semester; `500` if `TUITION_AMOUNT` isn't configured (nothing is saved). If RabbitMQ is down the enrollment still succeeds and the missed event is logged. |
 | GET | `/api/v1/students/:studentId/enrollments` | — | `200` StudentEnrollment[] | Includes dropped enrollments. Ordered by semester start date, then course code. `400` non-integer id; `404` student not found; `[]` if the student has no enrollments. |
+| POST | `/api/v1/sessions` | `{ courseId*: int, semesterId*: int, sessionDate*: "YYYY-MM-DD", startTime*: "HH:MM[:SS]", endTime*: "HH:MM[:SS]" }` | `201` ClassSession | `400` missing/invalid field, `endTime` not after `startTime`, course/semester doesn't exist, or date outside the semester; `409` a session for that course, semester, date and start time already exists. |
+| POST | `/api/v1/attendance` | `{ sessionId*: int, records*: [{ studentId: int, status: "present" \| "absent" \| "late" }] }` | `201 { session: ClassSession, records: AttendanceRecord[] }` | Records a whole session at once, all-or-nothing: if any record fails, nothing is saved. `400` invalid record (error names its index), a student listed twice, session doesn't exist, or student(s) not actively enrolled in the session's course and semester; `409` student(s) already marked for this session (error names them). |
+| GET | `/api/v1/attendance/session/:sessionId` | — | `200 { session: ClassSession, records: AttendanceRecord[] }` | Records ordered by surname; `[]` if attendance hasn't been taken yet. `400` non-integer id; `404` session not found. |
+| GET | `/api/v1/students/:studentId/attendance` | — | `200 { studentId, summary: AttendanceSummary, records: StudentAttendance[] }` | Records newest first. `400` non-integer id; `404` student not found. |
+| POST | `/api/v1/grades` | `{ studentId*: int, courseId*: int, semesterId*: int, gradeLetter*: "A" \| "B" \| "C" \| "D" \| "F", gradePoints*: number 0–4 (≤ 2 decimals) }` | `201` Grade (new draft) or `200` Grade (draft corrected) | One grade per student, course and semester; posting again corrects the draft. `400` missing/invalid field, student/course/semester doesn't exist, or student not actively enrolled in that course that semester; `409` the grade is already published (published grades can't change). |
+| PUT | `/api/v1/grades/:id/publish` | — | `200` Grade | Sets `published: true` and `published_at`, then publishes `academic.grade.published`. Idempotent: publishing an already-published grade returns `200` and does **not** send the event again. `400` non-integer id; `404` grade not found. |
+| GET | `/api/v1/students/:studentId/grades` | — | `200 { studentId, gpa: number \| null, totalCredits: int, grades: StudentGrade[] }` | `gpa`/`totalCredits` count **published** grades only; `gpa` is `null` until one is published. `grades` includes drafts (see `published`). `400` non-integer id; `404` student not found. |
 
 `*` = required.
 
@@ -30,6 +37,20 @@ Every error response has the shape `{ "error": "message" }`. A request body that
 
 **StudentEnrollment:** Enrollment plus `course_code`, `course_title`, `semester_name`.
 
+**ClassSession:** `{ id, course_id, semester_id, session_date: "YYYY-MM-DD", start_time: "HH:MM:SS", end_time: "HH:MM:SS", created_at }`
+
+**AttendanceRecord:** `{ id, student_id, first_name, last_name, status, recorded_at }`
+
+**StudentAttendance:** `{ id, session_id, session_date, start_time, end_time, course_id, course_code, course_title, semester_id, semester_name, status, recorded_at }`
+
+**AttendanceSummary:** `{ totalSessions, presentSessions, lateSessions, percentage: number | null }`. `percentage = presentSessions / totalSessions × 100`, rounded to 2 decimals; `null` if there are no sessions yet. It counts sessions of courses the student is actively enrolled in (dropped courses excluded) where attendance has been taken; a student left off a taken register counts as not present. `late` does **not** count as present.
+
+**Grade:** `{ id, student_id, course_id, semester_id, grade_letter, grade_points: number, published: boolean, published_at: timestamp | null, created_at }`
+
+**StudentGrade:** Grade plus `course_code`, `course_title`, `credit_hours`, `semester_name`.
+
+**GPA:** `Σ(grade_points × credit_hours) / Σ(credit_hours)` over published grades, rounded to 2 decimals. F (0.00) grades count.
+
 ## Publishes (RabbitMQ)
 
 All events go to the durable **topic** exchange `school-events`, with the event name as the routing key. Messages are JSON (`content-type: application/json`) and persistent.
@@ -37,6 +58,7 @@ All events go to the durable **topic** exchange `school-events`, with the event 
 | Event name | Payload fields | Consumed by |
 |---|---|---|
 | `academic.student.enrolled` | `studentId`: int, `courseId`: int, `semesterId`: int, `enrolledAt`: ISO-8601 UTC string, `tuitionAmount`: number (flat rate from `TUITION_AMOUNT` for now; per-course later) | Finance (creates invoice), Notifications |
+| `academic.grade.published` | `studentId`: int, `courseId`: int, `semesterId`: int, `gradeLetter`: "A" \| "B" \| "C" \| "D" \| "F", `publishedAt`: ISO-8601 UTC string | Notifications |
 
 ## Subscribes to (RabbitMQ)
 

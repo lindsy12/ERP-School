@@ -110,3 +110,84 @@ CREATE TABLE IF NOT EXISTS enrollments (
     FOREIGN KEY (semester_id) REFERENCES semesters (id)
     ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- Attendance
+-- ============================================================
+
+-- One scheduled meeting of a course in a semester (e.g. CS101, Fall 2026, 2026-09-07 09:00-10:30).
+-- The UNIQUE key stops the same meeting being created twice, which would double-count it
+-- in attendance percentages.
+CREATE TABLE IF NOT EXISTS class_sessions (
+  id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  course_id     INT UNSIGNED NOT NULL,
+  semester_id   INT UNSIGNED NOT NULL,
+  session_date  DATE         NOT NULL,
+  start_time    TIME         NOT NULL,
+  end_time      TIME         NOT NULL,
+  created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_class_session (course_id, semester_id, session_date, start_time),
+  KEY idx_class_sessions_semester_id (semester_id),
+  CONSTRAINT chk_class_sessions_times CHECK (end_time > start_time),
+  CONSTRAINT fk_class_sessions_course
+    FOREIGN KEY (course_id) REFERENCES courses (id)
+    ON DELETE RESTRICT,
+  CONSTRAINT fk_class_sessions_semester
+    FOREIGN KEY (semester_id) REFERENCES semesters (id)
+    ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- One row per student per session. UNIQUE (session_id, student_id) means a student can't be
+-- marked twice for the same session. FKs are RESTRICT: attendance is a permanent record.
+CREATE TABLE IF NOT EXISTS attendance_records (
+  id           INT UNSIGNED                      NOT NULL AUTO_INCREMENT,
+  session_id   INT UNSIGNED                      NOT NULL,
+  student_id   INT UNSIGNED                      NOT NULL,
+  status       ENUM('present','absent','late')   NOT NULL,
+  recorded_at  TIMESTAMP                         NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_attendance (session_id, student_id),
+  KEY idx_attendance_student_id (student_id),
+  CONSTRAINT fk_attendance_session
+    FOREIGN KEY (session_id) REFERENCES class_sessions (id)
+    ON DELETE RESTRICT,
+  CONSTRAINT fk_attendance_student
+    FOREIGN KEY (student_id) REFERENCES students (id)
+    ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- Grades
+-- ============================================================
+
+-- One final grade per student per course per semester (UNIQUE key).
+-- A grade is recorded as a draft (published = FALSE) and can be corrected until it is
+-- published. Publishing makes it visible, fires academic.grade.published, and freezes it.
+-- grade_points is DECIMAL (exact), not FLOAT, so GPA sums don't pick up rounding noise;
+-- the CHECK keeps it on a 0.00-4.00 scale.
+CREATE TABLE IF NOT EXISTS grades (
+  id            INT UNSIGNED                  NOT NULL AUTO_INCREMENT,
+  student_id    INT UNSIGNED                  NOT NULL,
+  course_id     INT UNSIGNED                  NOT NULL,
+  semester_id   INT UNSIGNED                  NOT NULL,
+  grade_letter  ENUM('A','B','C','D','F')     NOT NULL,
+  grade_points  DECIMAL(3,2)                  NOT NULL,
+  published     BOOLEAN                       NOT NULL DEFAULT FALSE,
+  published_at  TIMESTAMP                     NULL DEFAULT NULL,
+  created_at    TIMESTAMP                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_grade (student_id, course_id, semester_id),
+  KEY idx_grades_course_id (course_id),
+  KEY idx_grades_semester_id (semester_id),
+  CONSTRAINT chk_grades_points CHECK (grade_points BETWEEN 0.00 AND 4.00),
+  CONSTRAINT fk_grades_student
+    FOREIGN KEY (student_id) REFERENCES students (id)
+    ON DELETE RESTRICT,
+  CONSTRAINT fk_grades_course
+    FOREIGN KEY (course_id) REFERENCES courses (id)
+    ON DELETE RESTRICT,
+  CONSTRAINT fk_grades_semester
+    FOREIGN KEY (semester_id) REFERENCES semesters (id)
+    ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
