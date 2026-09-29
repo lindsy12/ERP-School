@@ -9,7 +9,7 @@ const HttpError = require("../utils/httpError");
 
 exports.createInvoice = async (req, res) => {
   const invoice = await invoiceService.create(validateInvoice(req.body));
-  await publish("finance.invoice.created", {
+  publish("finance.invoice.created", {
     eventId: `invoice-${invoice.id}-${Date.now()}`,
     invoiceId: invoice.id,
     invoiceNumber: invoice.invoice_number,
@@ -30,7 +30,7 @@ exports.listStudentInvoices = async (req, res) => res.json(await invoiceService.
 
 exports.createPayment = async (req, res) => {
   const payment = await paymentService.create(validatePayment(req.body));
-  await publish("finance.payment.received", {
+  publish("finance.payment.received", {
     eventId: `payment-${payment.id}-${Date.now()}`,
     paymentId: payment.id,
     invoiceId: payment.invoice_id,
@@ -46,7 +46,7 @@ exports.createMomoPayment = async (req, res) => {
   const body = { ...req.body, method: "MOBILE_MONEY", transactionRef: req.body.transactionRef || `MOMO-${Date.now()}` };
   if (!body.phoneNumber) throw new HttpError(400, "VALIDATION_ERROR", "phoneNumber is required for mobile-money payments");
   const payment = await paymentService.create(validatePayment(body));
-  await publish("finance.payment.received", {
+  publish("finance.payment.received", {
     eventId: `payment-${payment.id}-${Date.now()}`,
     paymentId: payment.id,
     invoiceId: payment.invoice_id,

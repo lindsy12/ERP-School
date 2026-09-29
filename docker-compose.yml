@@ -111,6 +111,8 @@ services:
   finance-service:
     build: ./services/finance-service
     container_name: finance-service
+    ports:
+     - "4003:4003"
     environment:
       PORT: 4003
       DB_HOST: finance-db
