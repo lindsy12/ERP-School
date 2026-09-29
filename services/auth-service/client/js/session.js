@@ -101,7 +101,8 @@ async function refreshOnce(stale) {
   const res = await send('/api/v1/auth/refresh', { method: 'POST', body: { refresh_token: used } }).catch(() => null);
   if (!res) return false; // network problem: keep the tokens, the next call may work
   if (!res.ok) {
-    if (read(REFRESH_KEY) === used) clearSession(); // rejected, and nobody has replaced it meanwhile
+    // Only a 401 means the refresh token is dead; a 429 or 5xx is temporary, so keep the tokens.
+    if (res.status === 401 && read(REFRESH_KEY) === used) clearSession(); // and nobody has replaced it meanwhile
     return false;
   }
   storeTokens(await res.json());
@@ -117,10 +118,13 @@ function refreshTokens(stale) {
 }
 
 // A usable access token, refreshing it first if needed. null = the user must sign in again.
+// Throws when the refresh failed for a temporary reason (network, 429, 5xx): the session is still valid.
 export async function accessToken() {
   const token = read(ACCESS_KEY);
   if (isFresh(token)) return token;
-  return (await refreshTokens(token)) ? read(ACCESS_KEY) : null;
+  if (await refreshTokens(token)) return read(ACCESS_KEY);
+  if (read(REFRESH_KEY)) throw new ApiError('Could not renew your session. Please try again in a moment.', 503, 'REFRESH_FAILED');
+  return null;
 }
 
 function signedOut() {
@@ -132,6 +136,10 @@ function signedOut() {
 // A 401 means the session is over: tokens are cleared and an "auth:expired" event is fired.
 export async function api(path, { method = 'GET', body } = {}) {
   const token = await accessToken();
+  if (!token) { // no point sending it: the gateway would only answer "Missing Authorization header"
+    signedOut();
+    throw new ApiError('Your session has ended. Please sign in again.', 401, 'UNAUTHORIZED');
+  }
   let res = await send(path, { method, body, token });
 
   if (res.status === 401) {
