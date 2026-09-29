@@ -45,7 +45,9 @@ export default async function render(root) {
     if (!id) return '—';
     if (me && me.id === id) return 'You';
     const e = employees.find((x) => x.id === id);
-    return e ? `${e.firstName} ${e.lastName}` : 'Assigned';
+    // Staff can't fetch the employee directory (manager-only endpoint), so `employees`
+    // is empty for them — say so plainly rather than showing a confusing placeholder.
+    return e ? `${e.firstName} ${e.lastName}` : 'Another employee';
   };
 
   const list = h('div', null, loading());
