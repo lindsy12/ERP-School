@@ -3,6 +3,9 @@
 // auth-service before forwarding. Paths must match exactly (no prefixes, no trailing slash);
 // method '*' means any method.
 //
+// Also public, but not listed here: GET/HEAD of each service's web pages (its uiPrefix in
+// config/services.js), added in app.js from the registry.
+//
 // Keep this list short, and document every change in docs/gateway.md.
 module.exports = [
   { method: 'POST', path: '/api/v1/auth/login' },
