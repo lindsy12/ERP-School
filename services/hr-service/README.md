@@ -23,9 +23,28 @@ Multi-tenant: every table is scoped by `tenantId` (the school), taken from the g
 3. Start the DB: `docker compose up -d hr-db rabbitmq` (from the repo root).
 4. `npm run dev` — listens on `PORT` (default 4004).
 
+## Running the real way — through the gateway
+
+This is the actual path end users take, and it's been verified working (real password login,
+real HR data, zero direct access to hr-service's own port):
+
+```bash
+docker compose up -d --build             # whole stack: dbs, rabbitmq, auth-service, hr-service, gateway
+docker compose exec auth-service npm run migrate
+docker compose exec auth-service npm run seed   # needs SEED_* vars in services/auth-service/.env
+docker compose exec hr-service node scripts/seed-demo.js
+```
+
+Open `http://localhost:3000/hr/` (port **3000**, the gateway — not 4004) and log in with the
+`SEED_SUPERADMIN_EMAIL`/`SEED_SUPERADMIN_PASSWORD` you set, and `SEED_TENANT_ID` as the tenant.
+The gateway proxies both `/api/v1/hr/*` (needs a token) and `/hr/*` (hr-service's static files,
+GET/HEAD only, no token — see `gateway/src/config/services.js`'s `uiPrefix`) straight to
+hr-service, which is never itself reachable from outside Docker.
+
 ## Running the UI without the gateway or auth-service
 
-For working on hr-service in isolation (or demoing just this module):
+For working on hr-service in isolation, before auth-service/gateway existed or without running
+the whole stack:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.hr-dev.yml up -d --build
@@ -35,8 +54,7 @@ docker compose exec hr-service node scripts/dev-token.js ADMIN
 
 Open `http://localhost:4004/hr/`, paste the token under "Use an access token instead". The
 `docker-compose.hr-dev.yml` overlay is what publishes hr-service's port to the host — the base
-`docker-compose.yml` never does, since only the gateway is meant to be reachable from outside
-Docker (see `docs/gateway.md`). `scripts/dev-token.js` refuses to run with `NODE_ENV=production`.
+`docker-compose.yml` never does. `scripts/dev-token.js` refuses to run with `NODE_ENV=production`.
 
 ## Running tests
 Tests run against a **real MySQL** instance (not an in-memory fake) — this needs
