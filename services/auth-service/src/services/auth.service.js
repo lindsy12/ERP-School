@@ -11,6 +11,8 @@ const { security } = require('../config/env');
 const invalidCredentials = () =>
   new HttpError(401, 'INVALID_CREDENTIALS', 'Invalid email or password');
 const accountLocked = () => new HttpError(423, 'ACCOUNT_LOCKED', 'Account temporarily locked');
+// The token may still be valid for a few minutes after an account is disabled or deleted.
+const userGone = () => new HttpError(401, 'UNAUTHORIZED', 'User no longer exists or is disabled');
 
 // One error for every refresh failure (unknown, expired, revoked, reused), so a caller learns
 // nothing except "log in again".
@@ -78,6 +80,11 @@ async function login({ tenantId, email, password }) {
     await userModel.resetFailedLogins(user.id);
   }
 
+  return startSession(user);
+}
+
+// A new session (token family) with its first refresh token, and an access token to go with it.
+async function startSession(user) {
   const refresh = tokenService.generateRefreshToken();
   await refreshTokenModel.startFamily({
     familyId: crypto.randomUUID(), // a new login starts a new token family
@@ -145,43 +152,61 @@ async function refresh(refreshToken) {
   return tokenResponse(outcome.user, outcome.refreshToken);
 }
 
-// Ends the session the refresh token belongs to. Only its owner can do this. Ending a session
-// that is already ended succeeds, so a client can retry safely.
-async function logout(userId, refreshToken) {
+// Ends the session the refresh token belongs to, and the access token used for the call, so the
+// client is logged out at once rather than when that token expires. Only the owner can do this.
+async function logout(user, accessToken, refreshToken) {
   const found = await refreshTokenModel.withTransaction(async (tx) => {
     const current = await tx.findByHashForUpdate(tokenService.hashRefreshToken(refreshToken));
-    if (!current || current.user_id !== userId) return false;
+    if (!current || current.user_id !== user.id) return false;
     if (!current.family_revoked_at) await tx.revokeFamily(current.family_id);
     return true;
   });
 
   if (!found) throw invalidRefreshToken();
+
+  if (accessToken.jti) {
+    await refreshTokenModel.revokeAccessToken({ jti: accessToken.jti, userId: user.id, expiresAt: accessToken.expiresAt });
+  }
 }
 
-async function getMe(userId) {
-  const user = await userModel.findById(userId);
-  // The token may still be valid for a few minutes after an account is disabled or deleted.
-  if (!user || !user.is_active) {
-    throw new HttpError(401, 'UNAUTHORIZED', 'User no longer exists or is disabled');
+// A logged-in user replaces their own password. A wrong current password counts as a failed login,
+// so a stolen access token can't be used to guess it without triggering the lockout. On success
+// every session ends (other devices must log in again) and the caller gets a fresh one.
+async function changePassword(user, { currentPassword, newPassword }) {
+  const now = new Date();
+  const account = await userModel.findCredentialsById(user.id);
+  if (!account) throw userGone();
+  if (isLocked(account, now)) throw accountLocked();
+
+  if (!(await verifyPassword(currentPassword, account.password_hash))) {
+    if (await registerFailedLogin(account, now)) throw accountLocked();
+    throw new HttpError(400, 'VALIDATION_ERROR', 'Request body is invalid', [
+      { field: 'current_password', message: 'is incorrect' },
+    ]);
+  }
+
+  await userModel.setPassword(user.id, await hashPassword(newPassword), tokenService.revocationCutoff(now));
+  securityLog('info', 'auth.password.changed', {
+    message: 'Password changed by its owner; all sessions ended',
+    userId: user.id,
+    tenantId: user.tenant_id,
+  });
+  return startSession(user);
+}
+
+// Turns the claims of a correctly signed access token into the current user, read from the
+// database. So a disabled account, a changed role, a logout or a password change takes effect on
+// the next request, instead of when the token expires.
+async function resolveTokenUser(claims) {
+  const [user, revoked] = await Promise.all([
+    userModel.findById(claims.sub),
+    claims.jti ? refreshTokenModel.isAccessTokenRevoked(claims.jti) : false,
+  ]);
+  if (!user || !user.is_active) throw userGone();
+  if (revoked || tokenService.issuedBeforeCutoff(claims, user.tokens_valid_after)) {
+    throw new HttpError(401, 'INVALID_TOKEN', 'Access token has been revoked');
   }
   return { id: user.id, email: user.email, role: user.role, tenant_id: user.tenant_id };
 }
 
-// Admin action: clears a lockout early. Admins only reach users of their own school; any other id
-// gets the same 404 as a missing one, so the response doesn't reveal that the account exists.
-async function unlockUser(admin, userId) {
-  const target = await userModel.findById(userId);
-  if (!target || target.tenant_id !== admin.tenant_id) {
-    throw new HttpError(404, 'NOT_FOUND', 'User not found');
-  }
-
-  await userModel.resetFailedLogins(userId);
-  securityLog('info', 'auth.account.unlocked', {
-    message: 'Account unlocked by an administrator',
-    userId,
-    tenantId: target.tenant_id,
-    unlockedBy: admin.id,
-  });
-}
-
-module.exports = { login, refresh, logout, unlockUser, getMe };
+module.exports = { login, refresh, logout, changePassword, resolveTokenUser };

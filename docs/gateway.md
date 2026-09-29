@@ -38,7 +38,8 @@ Defined in `gateway/src/config/publicRoutes.js`. Exact method + path; everything
 
 1. The client must send `Authorization: Bearer <access_token>` (from login).
 2. The gateway asks auth-service `GET /api/v1/auth/verify` (3 s timeout) whether the token is
-   valid **and** the user is still active.
+   valid, not revoked (logout, password change) **and** the user is still active. The role it
+   returns is the user's current role in the database, not the one written in the token.
 3. Only then is the request forwarded, with the identity headers below added.
 
 ## Headers your service receives
@@ -72,7 +73,7 @@ Same shape as every service: `{ "error": { "code": "...", "message": "..." } }`.
 | Status | Code | When |
 |---|---|---|
 | 401 | `UNAUTHORIZED` | No `Authorization: Bearer ...` header on a protected route |
-| 401 | `INVALID_TOKEN`, `TOKEN_EXPIRED`, `UNAUTHORIZED` | auth-service rejected the token (its code is passed through; `TOKEN_EXPIRED` means "refresh and retry"; `UNAUTHORIZED` here means the user was disabled or deleted) |
+| 401 | `INVALID_TOKEN`, `TOKEN_EXPIRED`, `UNAUTHORIZED` | auth-service rejected the token (its code is passed through; `TOKEN_EXPIRED` means "refresh and retry"; `INVALID_TOKEN` also covers tokens revoked by logout or a password change; `UNAUTHORIZED` here means the user was disabled or deleted) |
 | 429 | `RATE_LIMITED` | Too many requests (see Rate limits below); `Retry-After` says how many seconds to wait |
 | 404 | `NOT_FOUND` | Path matches no service prefix (after authentication) |
 | 502 | `SERVICE_UNAVAILABLE` | The target service is down or unreachable |

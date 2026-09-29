@@ -1,4 +1,5 @@
-// SQL queries for the token_families and refresh_tokens tables.
+// SQL queries for the token tables: token_families and refresh_tokens (login sessions), and
+// revoked_access_tokens (access tokens ended early by logout).
 const pool = require('../config/db');
 
 // A login starts a new family and issues its first token. Both rows are written in one
@@ -86,4 +87,19 @@ async function withTransaction(work) {
   }
 }
 
-module.exports = { startFamily, withTransaction };
+// Logout: the access token stops working now instead of at its expiry. Rows whose token has
+// expired anyway are useless, so they are cleared out here, keeping the table small.
+async function revokeAccessToken({ jti, userId, expiresAt }) {
+  await pool.query('DELETE FROM revoked_access_tokens WHERE expires_at < ?', [new Date()]);
+  await pool.query(
+    'INSERT IGNORE INTO revoked_access_tokens (jti, user_id, expires_at) VALUES (?, ?, ?)',
+    [jti, userId, expiresAt],
+  );
+}
+
+async function isAccessTokenRevoked(jti) {
+  const [rows] = await pool.query('SELECT 1 FROM revoked_access_tokens WHERE jti = ?', [jti]);
+  return rows.length > 0;
+}
+
+module.exports = { startFamily, withTransaction, revokeAccessToken, isAccessTokenRevoked };
