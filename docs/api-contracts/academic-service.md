@@ -26,6 +26,11 @@ Every error response has the shape `{ "error": "message" }`. A request body that
 | GET | `/api/v1/students/:studentId/grades` | — | `200 { studentId, gpa: number \| null, totalCredits: int, grades: StudentGrade[] }` | `gpa`/`totalCredits` count **published** grades only; `gpa` is `null` until one is published. `grades` includes drafts (see `published`). `400` non-integer id; `404` student not found. |
 | GET | `/api/v1/students/:studentId/at-risk` | — | `200 { studentId, isAtRisk: boolean, reasons: string[], details: { attendancePercentage: number \| null, lastTwoPublishedGrades: [{ gradeId, courseCode, semesterName, gradeLetter, publishedAt }] }, storedFlag: AtRiskFlag \| null }` | Evaluated **live** from current attendance and grades, so it's accurate even if an automatic check was missed. `storedFlag` is the last state the automatic checks saved (`null` if never checked). Read-only: it doesn't update the stored flag or send events. `400` non-integer id; `404` student not found. |
 | GET | `/api/v1/at-risk-students` | — | `200` AtRiskStudent[] | Students whose **stored** flag is at risk, most recently flagged first; `[]` if none. For advisors. |
+| POST | `/api/v1/exams` | `{ courseId*: int, semesterId*: int, examDate*: "YYYY-MM-DD", startTime*: "HH:MM[:SS]", endTime*: "HH:MM[:SS]", room*: string(≤50) }` | `201` Exam | Checks for room conflicts before saving (see **Exam conflict rule**). `400` missing/invalid field, `endTime` not after `startTime`, course/semester doesn't exist, or date outside the semester; `409` overlaps existing exam(s) in that room and date: nothing is saved, and the body has `error` naming each clash (course code + time range) plus `conflicts: Exam[]`; `503` the room's booking lock was busy for over 5 s (retry). |
+| GET | `/api/v1/exams` | — | `200` Exam[] | Optional query filters `?semesterId=` and `?courseId=` (combinable). Ordered by date, start time, room. `400` if a filter is present but not a positive integer. |
+| GET | `/api/v1/exams/:id` | — | `200` Exam | `400` non-integer id; `404` not found. |
+| PUT | `/api/v1/exams/:id` | Same as POST | `200` Exam | Full replace. Re-runs the conflict check against the new room/date/times, **excluding this exam itself**. On `409` the exam is left unchanged. `400` / `409` / `503` as POST; `404` not found. |
+| DELETE | `/api/v1/exams/:id` | — | `204` (no body) | Frees the room slot. `400` non-integer id; `404` not found. |
 
 `*` = required.
 
@@ -58,6 +63,10 @@ Every error response has the shape `{ "error": "message" }`. A request body that
 **AtRiskFlag:** `{ id, student_id, is_at_risk: boolean, reasons: string[], flagged_at: timestamp | null, cleared_at: timestamp | null }`. `flagged_at` is when the most recent at-risk period started; `cleared_at` is when it ended (`null` while still at risk).
 
 **AtRiskStudent:** `{ student_id, first_name, last_name, email, flagged_at, reasons: string[] }`
+
+**Exam:** `{ id, course_id, course_code, course_title, semester_id, semester_name, exam_date: "YYYY-MM-DD", start_time: "HH:MM:SS", end_time: "HH:MM:SS", room, created_at }`
+
+**Exam conflict rule:** two exams conflict if they're in the **same room** (case-insensitive, surrounding spaces ignored), on the **same date**, and their time ranges overlap. Ranges are half-open `[start, end)`, and `[s1, e1)` overlaps `[s2, e2)` when `s1 < e2 AND s2 < e1`. So partial overlaps, one exam inside another, and one exam surrounding another all conflict, but **back-to-back exams do not** (09:00–11:00 then 11:00–13:00 is fine). Semester and course don't matter to a room clash. Bookings for the same room are serialised with a lock, so two simultaneous requests can't double-book it.
 
 ## Publishes (RabbitMQ)
 

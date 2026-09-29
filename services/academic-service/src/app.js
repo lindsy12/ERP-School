@@ -11,6 +11,7 @@ const sessionRoutes = require('./routes/sessionRoutes');
 const attendanceRoutes = require('./routes/attendanceRoutes');
 const gradeRoutes = require('./routes/gradeRoutes');
 const atRiskRoutes = require('./routes/atRiskRoutes');
+const examRoutes = require('./routes/examRoutes');
 const rabbitmq = require('./services/rabbitmq');
 
 const app = express();
@@ -36,6 +37,7 @@ app.use('/api/v1/students', studentRecordRoutes);
 app.use('/api/v1/sessions', sessionRoutes);
 app.use('/api/v1/attendance', attendanceRoutes);
 app.use('/api/v1/grades', gradeRoutes);
+app.use('/api/v1/exams', examRoutes);
 // Holds full paths (/students/:studentId/at-risk and /at-risk-students), so it's mounted at /api/v1.
 app.use('/api/v1', atRiskRoutes);
 

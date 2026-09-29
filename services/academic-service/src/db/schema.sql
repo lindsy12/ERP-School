@@ -220,3 +220,36 @@ CREATE TABLE IF NOT EXISTS at_risk_flags (
     FOREIGN KEY (student_id) REFERENCES students (id)
     ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- Exams
+-- ============================================================
+
+-- One scheduled exam for a course in a semester, in a room.
+-- There is deliberately NO unique key for room conflicts: two exams clash when their time
+-- ranges *overlap*, which a unique key can't express (09:00-11:00 and 10:00-12:00 have
+-- different start times but still clash). examController checks overlaps in code, holding a
+-- per-room lock (see examModel).
+-- room uses the table's case-insensitive collation, so "Hall A" and "hall a" are the same room.
+-- idx_exams_room_date makes the conflict lookup (WHERE room = ? AND exam_date = ?) an index seek.
+CREATE TABLE IF NOT EXISTS exams (
+  id           INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  course_id    INT UNSIGNED NOT NULL,
+  semester_id  INT UNSIGNED NOT NULL,
+  exam_date    DATE         NOT NULL,
+  start_time   TIME         NOT NULL,
+  end_time     TIME         NOT NULL,
+  room         VARCHAR(50)  NOT NULL,
+  created_at   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_exams_room_date (room, exam_date),
+  KEY idx_exams_course_id (course_id),
+  KEY idx_exams_semester_id (semester_id),
+  CONSTRAINT chk_exams_times CHECK (end_time > start_time),
+  CONSTRAINT fk_exams_course
+    FOREIGN KEY (course_id) REFERENCES courses (id)
+    ON DELETE RESTRICT,
+  CONSTRAINT fk_exams_semester
+    FOREIGN KEY (semester_id) REFERENCES semesters (id)
+    ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
