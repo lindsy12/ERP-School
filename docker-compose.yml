@@ -39,8 +39,8 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpass}
       MYSQL_DATABASE: academic_db
-    expose:
-      - "3306"
+    ports:
+      - "3307:3306"
     volumes:
       - academic-db-data:/var/lib/mysql
 
