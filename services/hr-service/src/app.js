@@ -3,7 +3,9 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const swaggerUi = require('swagger-ui-express');
 
+const openapiSpec = require('./docs/openapi');
 const employeeRoutes = require('./routes/employee.routes');
 const attendanceRoutes = require('./routes/attendance.routes');
 const leaveRoutes = require('./routes/leave.routes');
@@ -28,6 +30,11 @@ app.use('/health', healthRoutes);
 // HR's own frontend (plain HTML/CSS/JS, no build step). The gateway should proxy /hr/* here.
 app.use('/hr', express.static(path.join(__dirname, '..', 'client')));
 app.get('/', (req, res) => res.redirect('/hr/'));
+
+app.get('/api/v1/hr/openapi.json', (req, res) => res.json(openapiSpec));
+// swagger-ui-express serves a page with inline scripts/styles, which the global CSP above
+// (script-src/style-src 'self') would block — strip it for this one path only.
+app.use('/api/v1/hr/docs', (req, res, next) => { res.removeHeader('Content-Security-Policy'); next(); }, swaggerUi.serve, swaggerUi.setup(openapiSpec));
 
 app.use('/api/v1/hr/employees', employeeRoutes);
 app.use('/api/v1/hr/attendance', attendanceRoutes);
