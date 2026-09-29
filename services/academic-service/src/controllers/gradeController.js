@@ -4,6 +4,7 @@ const courseModel = require('../models/courseModel');
 const semesterModel = require('../models/semesterModel');
 const studentModel = require('../models/studentModel');
 const { publishEvent } = require('../services/rabbitmq');
+const { checkAndFlagStudent } = require('../services/atRiskCheck');
 const { parseId, findMissingFields } = require('../utils/validation');
 
 // Express route handlers for grades.
@@ -140,6 +141,11 @@ async function publishGrade(req, res) {
         gradeLetter: grade.grade_letter,
         publishedAt: grade.published_at.toISOString(),
       });
+
+      // A newly published grade can change the at-risk rule's "two most recent grades" part.
+      // Runs only when this call actually published (not on an idempotent re-publish), and
+      // never throws.
+      await checkAndFlagStudent(grade.student_id);
     }
 
     return res.json(grade);

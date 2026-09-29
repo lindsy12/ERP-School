@@ -191,3 +191,32 @@ CREATE TABLE IF NOT EXISTS grades (
     FOREIGN KEY (semester_id) REFERENCES semesters (id)
     ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- At-risk flags
+-- ============================================================
+
+-- The CURRENT at-risk state of each student: one row per student (UNIQUE student_id).
+-- It's stored, even though it can be recomputed at any time, so a check can tell whether a
+-- student's state has *changed*. academic.student.at_risk_flagged is published only on a
+-- transition into at-risk, not every time an at-risk student is re-checked.
+--   is_at_risk  current state
+--   reason      comma-separated reasons while at risk, e.g.
+--               "attendance_below_75,two_consecutive_fails"; NULL when not at risk
+--   flagged_at  when the student most recently became at-risk (NULL if they never have)
+--   cleared_at  when that most recent at-risk period ended (NULL while still at risk)
+-- A student with a row but is_at_risk = FALSE has been checked and is fine.
+CREATE TABLE IF NOT EXISTS at_risk_flags (
+  id          INT UNSIGNED  NOT NULL AUTO_INCREMENT,
+  student_id  INT UNSIGNED  NOT NULL,
+  is_at_risk  BOOLEAN       NOT NULL DEFAULT FALSE,
+  reason      VARCHAR(100)  NULL DEFAULT NULL,
+  flagged_at  TIMESTAMP     NULL DEFAULT NULL,
+  cleared_at  TIMESTAMP     NULL DEFAULT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_at_risk_student (student_id),
+  KEY idx_at_risk_is_at_risk (is_at_risk),
+  CONSTRAINT fk_at_risk_student
+    FOREIGN KEY (student_id) REFERENCES students (id)
+    ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -9,6 +9,7 @@ const {
   parseTime,
   toDateString,
 } = require('../utils/validation');
+const { checkAndFlagStudent } = require('../services/atRiskCheck');
 
 // Express route handlers for class sessions and attendance.
 // Same conventions as the course/enrollment controllers: validate first (400), then check
@@ -165,6 +166,14 @@ async function recordAttendance(req, res) {
     }
 
     await attendanceModel.recordAttendance(sessionId, records);
+
+    // New attendance changes these students' attendance percentage, so re-check each one's
+    // at-risk status. One at a time, on purpose: each check holds a pool connection for its
+    // transaction, and running a whole class in parallel could tie up the pool for other
+    // requests. checkAndFlagStudent never throws, so the attendance (already saved) still returns 201.
+    for (const { studentId } of records) {
+      await checkAndFlagStudent(studentId);
+    }
 
     const register = await attendanceModel.getAttendanceForSession(sessionId);
     return res.status(201).json({ session, records: register });
