@@ -4,7 +4,7 @@ const { parseId } = require('../utils/validation');
 
 // Express route handler for transcript downloads.
 
-// GET /api/v1/students/:studentId/transcript/pdf
+// GET /api/v1/academic/students/:studentId/transcript/pdf
 // Streams the student's transcript as a downloadable PDF named transcript-<matricNumber>.pdf.
 // 400 non-integer id; 404 student not found.
 //

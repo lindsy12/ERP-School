@@ -2,7 +2,7 @@ const pool = require('../db');
 const courseModel = require('../models/courseModel');
 const programModel = require('../models/programModel');
 
-// Express route handlers for /api/v1/courses.
+// Express route handlers for /api/v1/academic/courses.
 // Controllers validate input, call model functions, and map outcomes to HTTP status codes.
 // Error responses always have the shape { error: "message" }.
 
@@ -131,7 +131,7 @@ async function loadCourseWithPrerequisites(id) {
 
 // ---------- handlers ----------
 
-// POST /api/v1/courses
+// POST /api/v1/academic/courses
 // Creates a course and, optionally, links its prerequisites in the same transaction.
 // Returns 201 with the created course, including resolved prerequisites.
 async function createCourse(req, res) {
@@ -162,7 +162,7 @@ async function createCourse(req, res) {
   }
 }
 
-// GET /api/v1/courses
+// GET /api/v1/academic/courses
 // Lists all courses without their prerequisites. Use GET /courses/:id for prerequisites.
 // Returns 200 with an array, which may be empty.
 async function listCourses(req, res) {
@@ -175,7 +175,7 @@ async function listCourses(req, res) {
   }
 }
 
-// GET /api/v1/courses/:id
+// GET /api/v1/academic/courses/:id
 // Returns one course with a `prerequisites` array of resolved courses (id, code, title,
 // credit_hours). Returns 400 for a malformed id and 404 if the course doesn't exist.
 async function getCourse(req, res) {
@@ -192,7 +192,7 @@ async function getCourse(req, res) {
   }
 }
 
-// PUT /api/v1/courses/:id
+// PUT /api/v1/academic/courses/:id
 // Full replacement of a course's fields (same required fields as POST).
 // If `prerequisite_ids` is sent, it replaces the prerequisite list entirely ([] clears it).
 // If it's left out, existing prerequisites are kept, so a simple title edit can't wipe them.
@@ -236,7 +236,7 @@ async function updateCourse(req, res) {
   }
 }
 
-// DELETE /api/v1/courses/:id
+// DELETE /api/v1/academic/courses/:id
 // Deletes a course and its own prerequisite links. Returns 204 No Content on success
 // (nothing left to send back), 404 if it doesn't exist, and 409 if other courses still
 // list it as a prerequisite.

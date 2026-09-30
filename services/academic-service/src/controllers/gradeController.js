@@ -13,7 +13,7 @@ const { parseId, findMissingFields } = require('../utils/validation');
 
 const GRADE_LETTERS = ['A', 'B', 'C', 'D', 'F'];
 
-// POST /api/v1/grades
+// POST /api/v1/academic/grades
 // Records or corrects a draft grade:
 // { studentId, courseId, semesterId, gradeLetter: "A"-"F", gradePoints: 0-4 }.
 // Returns 201 when a new grade is created, and 200 when an existing draft is corrected.
@@ -114,7 +114,7 @@ async function recordGrade(req, res) {
   }
 }
 
-// PUT /api/v1/grades/:id/publish
+// PUT /api/v1/academic/grades/:id/publish
 // Publishes one grade and fires "academic.grade.published" (consumed by Notifications).
 // Returns 200 with the grade and 404 if it doesn't exist.
 // Idempotent, as PUT should be: publishing an already-published grade returns 200 with the grade
@@ -155,7 +155,7 @@ async function publishGrade(req, res) {
   }
 }
 
-// GET /api/v1/students/:studentId/grades
+// GET /api/v1/academic/students/:studentId/grades
 // Returns { studentId, gpa, totalCredits, grades: [...] }.
 // gpa and totalCredits cover PUBLISHED grades only (see gradeModel.getGPA for the formula).
 // grades lists drafts too, each with a `published` flag.

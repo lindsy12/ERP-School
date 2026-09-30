@@ -1,7 +1,6 @@
 const pool = require('../db');
 
 // Data-access functions for the `students` table.
-// There are no student CRUD endpoints yet. For now this only supports enrollment lookups.
 
 // Returns a single student by id, or null if not found.
 // Why: enrollment needs to confirm the student exists before enrolling them (clear 400),
@@ -16,6 +15,25 @@ async function getStudentById(id, db = pool) {
   return rows[0] || null;
 }
 
+// All students, by last name.
+async function listStudents(db = pool) {
+  const [rows] = await db.query(
+    `SELECT id, first_name, last_name, email, enrollment_date, created_at
+       FROM students ORDER BY last_name, first_name`
+  );
+  return rows;
+}
+
+async function createStudent({ firstName, lastName, email }, db = pool) {
+  const [result] = await db.query(
+    'INSERT INTO students (first_name, last_name, email) VALUES (?, ?, ?)',
+    [firstName, lastName, email]
+  );
+  return getStudentById(result.insertId, db);
+}
+
 module.exports = {
   getStudentById,
+  listStudents,
+  createStudent,
 };

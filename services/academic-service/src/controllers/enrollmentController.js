@@ -28,7 +28,7 @@ function getTuitionAmount() {
   return Number.isFinite(amount) && amount >= 0 ? amount : null;
 }
 
-// POST /api/v1/enrollments
+// POST /api/v1/academic/enrollments
 // Enrolls a student in a course for a semester. Steps, in order:
 //   1. validate the body (400)
 //   2. confirm the student, course and semester exist (400)
@@ -120,7 +120,7 @@ async function createEnrollment(req, res) {
   }
 }
 
-// GET /api/v1/students/:studentId/enrollments
+// GET /api/v1/academic/students/:studentId/enrollments
 // Lists all of a student's enrollments (including dropped) with course and semester names.
 // Returns 404 if the student doesn't exist, and 200 with [] if they exist but have no enrollments.
 async function listStudentEnrollments(req, res) {

@@ -6,7 +6,7 @@ const { parseId } = require('../utils/validation');
 // Both endpoints are read-only. Stored flags are written only by services/atRiskCheck.js,
 // which runs automatically after attendance is recorded and grades are published.
 
-// GET /api/v1/students/:studentId/at-risk
+// GET /api/v1/academic/students/:studentId/at-risk
 // Returns the student's at-risk status evaluated LIVE from current attendance and grades:
 //   { studentId, isAtRisk, reasons, details: { attendancePercentage, lastTwoPublishedGrades },
 //     storedFlag }
@@ -36,7 +36,7 @@ async function getStudentAtRisk(req, res) {
   }
 }
 
-// GET /api/v1/at-risk-students
+// GET /api/v1/academic/at-risk-students
 // Returns every student currently flagged at risk (from the stored flags), most recently
 // flagged first, for advisors. 200 with [] if nobody is at risk.
 async function listAtRiskStudents(req, res) {

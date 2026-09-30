@@ -17,7 +17,7 @@ const { checkAndFlagStudent } = require('../services/atRiskCheck');
 
 const ATTENDANCE_STATUSES = ['present', 'absent', 'late'];
 
-// POST /api/v1/sessions
+// POST /api/v1/academic/sessions
 // Creates one class session: { courseId, semesterId, sessionDate: "YYYY-MM-DD",
 // startTime: "HH:MM", endTime: "HH:MM" }. Returns 201 with the session.
 // Why check the date falls inside the semester: a session outside its semester would still
@@ -92,7 +92,7 @@ async function createSession(req, res) {
   }
 }
 
-// POST /api/v1/attendance
+// POST /api/v1/academic/attendance
 // Records attendance for a whole session: { sessionId, records: [{ studentId, status }] }.
 // All-or-nothing: if any record is invalid, nothing is saved.
 // Checks, in order: body shape (400), session exists (400), every student is enrolled in the
@@ -189,7 +189,7 @@ async function recordAttendance(req, res) {
   }
 }
 
-// GET /api/v1/attendance/session/:sessionId
+// GET /api/v1/academic/attendance/session/:sessionId
 // Returns { session, records } for one session. 404 if the session doesn't exist, and an
 // empty records array if attendance hasn't been taken yet.
 async function getSessionAttendance(req, res) {
@@ -208,7 +208,7 @@ async function getSessionAttendance(req, res) {
   }
 }
 
-// GET /api/v1/students/:studentId/attendance
+// GET /api/v1/academic/students/:studentId/attendance
 // Returns { studentId, summary: { totalSessions, presentSessions, lateSessions, percentage },
 // records: [...] }. 404 if the student doesn't exist.
 // Why both in one response: the percentage on its own isn't useful without the records behind it.

@@ -68,7 +68,7 @@ function parseRegrade(body, status) {
   return { regrade: { gradeLetter, gradePoints } };
 }
 
-// POST /api/v1/grades/:gradeId/appeals
+// POST /api/v1/academic/grades/:gradeId/appeals
 // Body: { studentId, reason }. Files an appeal and returns 201 with it.
 // 400 missing/invalid input, grade not published, or grade belongs to another student;
 // 404 grade not found; 409 an open appeal already exists for this grade.
@@ -102,7 +102,7 @@ async function createAppeal(req, res) {
   }
 }
 
-// GET /api/v1/appeals?status=
+// GET /api/v1/academic/appeals?status=
 // Lists appeals oldest first (the order to work through them). An unknown status is a 400,
 // not an empty list, so a typo like ?status=pendng doesn't look like "no appeals".
 async function listAppeals(req, res) {
@@ -120,7 +120,7 @@ async function listAppeals(req, res) {
   }
 }
 
-// GET /api/v1/appeals/:id
+// GET /api/v1/academic/appeals/:id
 async function getAppeal(req, res) {
   const id = parseId(req.params.id);
   if (id === null) return res.status(400).json({ error: 'id must be a positive integer' });
@@ -135,7 +135,7 @@ async function getAppeal(req, res) {
   }
 }
 
-// PUT /api/v1/appeals/:id/status
+// PUT /api/v1/academic/appeals/:id/status
 // Body: { status, instructorResponse?, newGradeLetter?, newGradePoints? }.
 // Moves the appeal along pending -> under_review -> resolved_approved | resolved_rejected,
 // returning 200 with the updated appeal. Invalid jumps are 400.

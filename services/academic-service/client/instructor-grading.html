@@ -252,11 +252,20 @@
 
 <nav class="sidebar" id="sidebar">
   <div class="sidebar-head">
-    <div class="brand"><div class="brand-mark">U</div><span class="brand-label">UniERP</span></div>
+    <div class="brand"><div class="brand-mark">U</div><span class="brand-label">School ERP</span></div>
     <button class="collapse-btn" onclick="toggleSidebar()" title="Collapse sidebar">
       <svg viewBox="0 0 20 20" fill="none" width="14" height="14"><path d="M12 4l-6 6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
   </div>
+
+  <a class="nav-item" href="/academic/" title="Academics home">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span class="nav-label">Academics home</span>
+  </a>
+  <a class="nav-item" href="/auth/#/home" title="ERP home">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M3 12l9-9 9 9M5 10v10h14V10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span class="nav-label">ERP home</span>
+  </a>
 
   <div class="nav-section-label">Teaching</div>
   <button class="nav-item" data-view="dashboard" onclick="showView('dashboard')">
@@ -277,7 +286,7 @@
   </button>
 
   <div class="sidebar-footer">
-    <button class="nav-item">
+    <button class="nav-item" type="button" onclick="erpSignOut()">
       <svg viewBox="0 0 24 24" fill="none"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
       <span class="nav-label">Log out</span>
     </button>
@@ -431,315 +440,60 @@
 
 <script>
 /* ============================================================
-   CONFIG
-   The Academic Service is called directly until the gateway is ready.
-   When it is, change this one line (e.g. to 'http://localhost:3000').
+   API
+   Pages are served by the gateway (http://localhost:3000/academic/...), so API calls are
+   same-origin. Paths in this file are written as /api/v1/<resource>; the Academic API lives
+   under /api/v1/academic/<resource>, which apiCall() adds.
+   Sign-in is the ERP's shared session (/auth/js/session.js): not signed in -> sign-in page.
    ============================================================ */
-const GATEWAY_URL = 'http://localhost:4002';
+const GATEWAY_URL = location.origin;
+const erpSession = import('/auth/js/session.js');
+erpSession.then(({ requireSession }) => {
+  requireSession();
+  window.addEventListener('auth:expired', () => requireSession());
+});
 
-/* ============================================================
-   FAKE DATA + FAKE API — delete this whole block when switching to the
-   real backend, and un-comment the real apiCall() at the bottom of this file.
-
-   Every screen talks to the backend ONLY through apiCall(method, path, body),
-   which resolves to { status, data } exactly like the real one will. The fake
-   version below applies the same rules and error messages as the Academic
-   Service (see docs/api-contracts/academic-service.md), so the UI already handles
-   real status codes (201/200/400/404/409).
-
-   Routes marked "⚠ NO ENDPOINT YET" do not exist in the backend. They're the
-   endpoints this page needs; the shapes here are the proposed contracts.
-   ============================================================ */
-
-const FAKE_LATENCY_MS = 250;
-
-const FAKE = {
-  // ⚠ No auth/instructor model yet — who is logged in will come from the Auth service.
-  instructor: { id: 9, name: 'Dr. Emmanuel Ndifor' },
-
-  // ⚠ NO ENDPOINT YET for listing semesters.
-  semesters: [
-    { id: 3, name: 'Spring 2026', start_date: '2026-01-12', end_date: '2026-05-22' },
-    { id: 4, name: 'Fall 2026',   start_date: '2026-09-01', end_date: '2026-12-20' },
-    { id: 5, name: 'Spring 2027', start_date: '2027-01-15', end_date: '2027-05-20' },
-  ],
-
-  // Course shape matches GET /api/v1/courses.
-  courses: [
-    { id: 7,  program_id: 1, code: 'CS301', title: 'Database Systems',     description: null, credit_hours: 4 },
-    { id: 12, program_id: 1, code: 'CS340', title: 'Software Engineering', description: null, credit_hours: 3 },
-  ],
-
-  // ⚠ Courses have no instructor field yet, so "which course/semester do I teach" is fake.
-  offerings: [
-    { course_id: 7,  semester_id: 4 },
-    { course_id: 12, semester_id: 4 },
-    { course_id: 7,  semester_id: 3 },
-  ],
-
-  // Matric numbers use the backend's current placeholder format (STU + 6 digits).
-  students: [
-    [101, 'Amara', 'Ngu'], [102, 'Brice', 'Tchoumi'], [103, 'Chantal', 'Mbah'], [104, 'Daniel', 'Fon'],
-    [105, 'Esther', 'Njoya'], [106, 'Fabrice', 'Kamga'], [107, 'Grace', 'Ebai'], [108, 'Hervé', 'Nkeng'],
-    [109, 'Inès', 'Tabi'], [110, 'Joël', 'Atangana'], [111, 'Kelly', 'Mengue'], [112, 'Lionel', 'Foka'],
-    [113, 'Mireille', 'Eko'], [114, 'Nadine', 'Ayuk'],
-  ].map(([id, first_name, last_name]) => ({
-    id, first_name, last_name,
-    matric_number: 'STU' + String(id).padStart(6, '0'),
-    email: `${first_name}.${last_name}`.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '') + '@myuni.edu',
-  })),
-
-  enrollments: [],   // built below from the rosters
-  sessions: [],      // ClassSession shape
-  attendance: [],    // attendance_records rows
-  grades: [],        // Grade shape
-  appeals: [],       // stored appeal rows (the API view adds names/codes)
-  nextId: { session: 900, attendance: 5000, grade: 700, appeal: 30 },
-};
-
-(function buildFakeData() {
-  const rosters = {
-    '7:4':  [101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112],
-    '12:4': [101, 103, 105, 107, 109, 111, 113, 114],
-    '7:3':  [102, 103, 104, 105, 106, 107, 108, 109],
-  };
-  for (const [key, ids] of Object.entries(rosters)) {
-    const [course_id, semester_id] = key.split(':').map(Number);
-    ids.forEach(student_id => FAKE.enrollments.push({ student_id, course_id, semester_id, status: 'enrolled' }));
+// Resolves to { status, data }. Errors come back as data.error (a string), whether the Academic
+// Service ({ error: "..." }) or the gateway ({ error: { code, message } }) produced them.
+async function apiCall(method, path, body) {
+  const { accessToken, clearSession, requireSession } = await erpSession;
+  const token = await accessToken().catch(() => null);
+  if (!token) {
+    clearSession();
+    requireSession();
+    return { status: 401, data: { error: 'Your session has ended. Please sign in again.' } };
   }
-
-  // CS301 meets Mon + Wed 08:00–10:00, CS340 Wed 14:00–16:00 (same as the student timetable).
-  const addSession = (course_id, session_date, start_time, end_time) =>
-    FAKE.sessions.push({ id: FAKE.nextId.session++, course_id, semester_id: 4, session_date, start_time, end_time, created_at: session_date + 'T07:00:00.000Z' });
-  ['2026-09-07','2026-09-09','2026-09-14','2026-09-16','2026-09-21','2026-09-23','2026-09-28','2026-09-30']
-    .forEach(d => addSession(7, d, '08:00:00', '10:00:00'));
-  ['2026-09-02','2026-09-09','2026-09-16','2026-09-23','2026-09-30']
-    .forEach(d => addSession(12, d, '14:00:00', '16:00:00'));
-
-  // Attendance already taken for sessions up to 23 Sept. Deterministic, mostly present;
-  // Hervé (108) misses a lot, which is what the at-risk flag is for.
-  FAKE.sessions.filter(s => s.session_date <= '2026-09-23').forEach(s => {
-    FAKE.enrollments.filter(e => e.course_id === s.course_id && e.semester_id === s.semester_id).forEach(e => {
-      const h = (e.student_id * 7 + s.id * 13) % 20;
-      const status = e.student_id === 108 ? (h < 12 ? 'absent' : 'present') : h === 0 ? 'absent' : h === 1 ? 'late' : 'present';
-      FAKE.attendance.push({ id: FAKE.nextId.attendance++, session_id: s.id, student_id: e.student_id, status, recorded_at: s.session_date + 'T10:05:00.000Z' });
-    });
+  const headers = { Authorization: 'Bearer ' + token };
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  const res = await fetch(path.replace(/^\/api\/v1\//, '/api/v1/academic/'), {
+    method,
+    headers,
+    body: body === undefined ? undefined : JSON.stringify(body),
   });
-
-  const addGrade = (student_id, course_id, semester_id, grade_letter, grade_points, published) =>
-    FAKE.grades.push({
-      id: FAKE.nextId.grade++, student_id, course_id, semester_id, grade_letter, grade_points, published,
-      published_at: published ? '2026-06-12T09:30:00.000Z' : null, created_at: '2026-06-10T15:00:00.000Z',
-    });
-  // Spring 2026 CS301: all published (final grades).
-  [[102,'A',4],[103,'C',2],[104,'D',1],[105,'B',3],[106,'B',3],[107,'A',4],[108,'F',0],[109,'C',2]]
-    .forEach(([sid, l, p]) => addGrade(sid, 7, 3, l, p, true));
-  // Fall 2026 CS301: a few drafts entered so far.
-  [[101,'A',4],[102,'B',3],[104,'C',2]].forEach(([sid, l, p]) => addGrade(sid, 7, 4, l, p, false));
-
-  const gradeOf = (sid) => FAKE.grades.find(g => g.student_id === sid && g.course_id === 7 && g.semester_id === 3);
-  const addAppeal = (sid, status, reason, instructor_response, created_at, resolved_at = null) => {
-    const g = gradeOf(sid);
-    FAKE.appeals.push({ id: FAKE.nextId.appeal++, grade_id: g.id, student_id: sid, reason, status, instructor_response,
-      original_grade_letter: g.grade_letter, original_grade_points: g.grade_points, created_at, resolved_at });
-  };
-  addAppeal(105, 'resolved_rejected', 'I think my lab report marks were entered for the wrong week.',
-    'Checked with the lab assistant: the marks were recorded against the correct week. The grade stands.', '2026-06-15T08:00:00.000Z', '2026-06-22T11:00:00.000Z');
-  addAppeal(103, 'under_review', 'Question 3 on the final (normalising the schema to 3NF) was marked 0/15, but my answer matches the model solution posted afterwards.',
-    'Pulling your script from the archive to re-check question 3.', '2026-06-16T10:20:00.000Z');
-  addAppeal(104, 'pending', 'My group project mark (worth 30%) does not seem to be included in the final grade.',
-    null, '2026-06-18T14:45:00.000Z');
-})();
-
-// ---------- fake API router ----------
-function fakeApi(method, path, body) {
-  const url = new URL(path, 'http://fake.local');
-  const p = url.pathname, q = url.searchParams;
-  const reply = (status, data) => new Promise(resolve =>
-    setTimeout(() => resolve({ status, data: data === undefined ? null : JSON.parse(JSON.stringify(data)) }), FAKE_LATENCY_MS));
-  const err = (status, error, extra = {}) => reply(status, { error, ...extra });
-  const nowIso = () => new Date().toISOString().replace(/\.\d{3}Z$/, '.000Z');
-  const posInt = (v) => { const n = Number(v); return Number.isInteger(n) && n > 0 ? n : null; };
-  const missingOf = (b, fields) => fields.filter(f => b?.[f] === undefined || b?.[f] === null || b?.[f] === '');
-  const toTime = (v) => { const m = /^([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?$/.exec(v || ''); return m ? `${m[1]}:${m[2]}:${m[3] ?? '00'}` : null; };
-  const isDate = (v) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && new Date(v + 'T00:00:00Z').toISOString().slice(0, 10) === v;
-  const course = (id) => FAKE.courses.find(c => c.id === id);
-  const semester = (id) => FAKE.semesters.find(s => s.id === id);
-  const student = (id) => FAKE.students.find(s => s.id === id);
-  const isEnrolled = (sid, cid, semId) => FAKE.enrollments.some(e => e.student_id === sid && e.course_id === cid && e.semester_id === semId && e.status === 'enrolled');
-  const register = (sessionId) => FAKE.attendance.filter(a => a.session_id === sessionId).map(a => {
-    const s = student(a.student_id);
-    return { id: a.id, student_id: a.student_id, first_name: s.first_name, last_name: s.last_name, status: a.status, recorded_at: a.recorded_at };
-  }).sort((a, b) => a.last_name.localeCompare(b.last_name));
-  const appealView = (a) => {
-    const g = FAKE.grades.find(x => x.id === a.grade_id), s = student(a.student_id), c = course(g.course_id), sem = semester(g.semester_id);
-    return { id: a.id, grade_id: a.grade_id, student_id: a.student_id, first_name: s.first_name, last_name: s.last_name,
-      course_id: c.id, course_code: c.code, course_title: c.title, semester_id: sem.id, semester_name: sem.name,
-      original_grade_letter: a.original_grade_letter, original_grade_points: a.original_grade_points,
-      current_grade_letter: g.grade_letter, current_grade_points: g.grade_points,
-      reason: a.reason, status: a.status, instructor_response: a.instructor_response, created_at: a.created_at, resolved_at: a.resolved_at };
-  };
-  const LETTERS = ['A', 'B', 'C', 'D', 'F'];
-  const validPoints = (v) => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 4 && Math.round(v * 100) === v * 100;
-  let m;
-
-  // ⚠ NO ENDPOINT YET — proposed: GET /api/v1/instructors/me/offerings
-  if (method === 'GET' && p === '/api/v1/instructors/me/offerings') {
-    return reply(200, FAKE.offerings.map(o => {
-      const c = course(o.course_id), s = semester(o.semester_id);
-      return { course_id: c.id, course_code: c.code, course_title: c.title, credit_hours: c.credit_hours,
-        semester_id: s.id, semester_name: s.name, semester_start: s.start_date, semester_end: s.end_date,
-        enrolled_count: FAKE.enrollments.filter(e => e.course_id === c.id && e.semester_id === s.id && e.status === 'enrolled').length };
-    }));
-  }
-
-  // ⚠ NO ENDPOINT YET — proposed: GET /api/v1/courses/:courseId/roster?semesterId=
-  if (method === 'GET' && (m = p.match(/^\/api\/v1\/courses\/(\d+)\/roster$/))) {
-    const cid = Number(m[1]), semId = posInt(q.get('semesterId'));
-    if (!semId) return err(400, 'semesterId must be a positive integer');
-    return reply(200, FAKE.enrollments.filter(e => e.course_id === cid && e.semester_id === semId && e.status === 'enrolled')
-      .map(e => { const s = student(e.student_id); return { student_id: s.id, first_name: s.first_name, last_name: s.last_name, matric_number: s.matric_number, email: s.email }; })
-      .sort((a, b) => a.last_name.localeCompare(b.last_name)));
-  }
-
-  // ⚠ NO ENDPOINT YET — proposed: GET /api/v1/sessions?courseId=&semesterId= (adds attendance_count)
-  if (method === 'GET' && p === '/api/v1/sessions') {
-    const cid = posInt(q.get('courseId')), semId = posInt(q.get('semesterId'));
-    return reply(200, FAKE.sessions.filter(s => s.course_id === cid && s.semester_id === semId)
-      .map(s => ({ ...s, attendance_count: FAKE.attendance.filter(a => a.session_id === s.id).length }))
-      .sort((a, b) => (a.session_date + a.start_time).localeCompare(b.session_date + b.start_time)));
-  }
-
-  // POST /api/v1/sessions — exists. Same checks and messages as attendanceController.createSession.
-  if (method === 'POST' && p === '/api/v1/sessions') {
-    const missing = missingOf(body, ['courseId', 'semesterId', 'sessionDate', 'startTime', 'endTime']);
-    if (missing.length) return err(400, `Missing required field(s): ${missing.join(', ')}`);
-    const cid = posInt(body.courseId), semId = posInt(body.semesterId);
-    if (!cid) return err(400, 'courseId must be a positive integer');
-    if (!semId) return err(400, 'semesterId must be a positive integer');
-    if (!isDate(body.sessionDate)) return err(400, 'sessionDate must be a valid date in YYYY-MM-DD format');
-    const st = toTime(body.startTime), et = toTime(body.endTime);
-    if (!st || !et) return err(400, 'startTime and endTime must be 24-hour times like "09:00" or "09:00:00"');
-    if (et <= st) return err(400, 'endTime must be after startTime');
-    if (!course(cid)) return err(400, `courseId ${cid} does not exist`);
-    const sem = semester(semId);
-    if (!sem) return err(400, `semesterId ${semId} does not exist`);
-    if (body.sessionDate < sem.start_date || body.sessionDate > sem.end_date)
-      return err(400, `sessionDate ${body.sessionDate} is outside ${sem.name} (${sem.start_date} to ${sem.end_date})`);
-    if (FAKE.sessions.some(s => s.course_id === cid && s.semester_id === semId && s.session_date === body.sessionDate && s.start_time === st))
-      return err(409, `A session for course ${cid} on ${body.sessionDate} at ${st} already exists in this semester`);
-    const s = { id: FAKE.nextId.session++, course_id: cid, semester_id: semId, session_date: body.sessionDate, start_time: st, end_time: et, created_at: nowIso() };
-    FAKE.sessions.push(s);
-    return reply(201, s);
-  }
-
-  // GET /api/v1/attendance/session/:sessionId — exists.
-  if (method === 'GET' && (m = p.match(/^\/api\/v1\/attendance\/session\/(\d+)$/))) {
-    const s = FAKE.sessions.find(x => x.id === Number(m[1]));
-    if (!s) return err(404, `Session ${m[1]} not found`);
-    return reply(200, { session: s, records: register(s.id) });
-  }
-
-  // POST /api/v1/attendance — exists. Same checks and messages as attendanceController.recordAttendance.
-  if (method === 'POST' && p === '/api/v1/attendance') {
-    const missing = missingOf(body, ['sessionId', 'records']);
-    if (missing.length) return err(400, `Missing required field(s): ${missing.join(', ')}`);
-    const sessionId = posInt(body.sessionId);
-    if (!sessionId) return err(400, 'sessionId must be a positive integer');
-    if (!Array.isArray(body.records) || !body.records.length) return err(400, 'records must be a non-empty array of { studentId, status }');
-    for (const [i, r] of body.records.entries()) {
-      if (!posInt(r?.studentId)) return err(400, `records[${i}].studentId must be a positive integer`);
-      if (!['present', 'absent', 'late'].includes(r.status)) return err(400, `records[${i}].status must be one of: present, absent, late`);
-    }
-    const ids = body.records.map(r => Number(r.studentId));
-    const repeated = [...new Set(ids.filter((id, i) => ids.indexOf(id) !== i))];
-    if (repeated.length) return err(400, `studentId(s) listed more than once: ${repeated.join(', ')}`);
-    const s = FAKE.sessions.find(x => x.id === sessionId);
-    if (!s) return err(400, `sessionId ${sessionId} does not exist`);
-    const notEnrolled = ids.filter(id => !isEnrolled(id, s.course_id, s.semester_id));
-    if (notEnrolled.length) return err(400, `studentId(s) not enrolled in this session's course and semester: ${notEnrolled.join(', ')}`);
-    const already = FAKE.attendance.filter(a => a.session_id === sessionId && ids.includes(a.student_id)).map(a => a.student_id);
-    if (already.length) return err(409, `Attendance already recorded for studentId(s) ${already.join(', ')} in session ${sessionId}; nothing was saved`);
-    const at = nowIso();
-    body.records.forEach(r => FAKE.attendance.push({ id: FAKE.nextId.attendance++, session_id: sessionId, student_id: Number(r.studentId), status: r.status, recorded_at: at }));
-    return reply(201, { session: s, records: register(sessionId) });
-  }
-
-  // ⚠ NO ENDPOINT YET — proposed: GET /api/v1/grades?courseId=&semesterId=
-  // (Possible today, but slow: GET /api/v1/students/:id/grades once per roster student.)
-  if (method === 'GET' && p === '/api/v1/grades') {
-    const cid = posInt(q.get('courseId')), semId = posInt(q.get('semesterId'));
-    return reply(200, FAKE.grades.filter(g => g.course_id === cid && g.semester_id === semId));
-  }
-
-  // POST /api/v1/grades — exists. Records or corrects a DRAFT; refuses published grades (409).
-  if (method === 'POST' && p === '/api/v1/grades') {
-    const missing = missingOf(body, ['studentId', 'courseId', 'semesterId', 'gradeLetter', 'gradePoints']);
-    if (missing.length) return err(400, `Missing required field(s): ${missing.join(', ')}`);
-    const sid = posInt(body.studentId), cid = posInt(body.courseId), semId = posInt(body.semesterId);
-    const letter = typeof body.gradeLetter === 'string' ? body.gradeLetter.trim().toUpperCase() : null;
-    if (!LETTERS.includes(letter)) return err(400, `gradeLetter must be one of: ${LETTERS.join(', ')}`);
-    if (!validPoints(body.gradePoints)) return err(400, 'gradePoints must be a number from 0 to 4 with at most 2 decimal places');
-    if (!isEnrolled(sid, cid, semId)) return err(400, `Student ${sid} is not enrolled in course ${cid} for semester ${semId}`);
-    const existing = FAKE.grades.find(g => g.student_id === sid && g.course_id === cid && g.semester_id === semId);
-    if (existing?.published) return err(409, `Grade ${existing.id} for this student, course and semester is already published and can't be changed`);
-    if (existing) { existing.grade_letter = letter; existing.grade_points = body.gradePoints; return reply(200, existing); }
-    const g = { id: FAKE.nextId.grade++, student_id: sid, course_id: cid, semester_id: semId, grade_letter: letter,
-      grade_points: body.gradePoints, published: false, published_at: null, created_at: nowIso() };
-    FAKE.grades.push(g);
-    return reply(201, g);
-  }
-
-  // PUT /api/v1/grades/:id/publish — exists. Idempotent.
-  if (method === 'PUT' && (m = p.match(/^\/api\/v1\/grades\/(\d+)\/publish$/))) {
-    const g = FAKE.grades.find(x => x.id === Number(m[1]));
-    if (!g) return err(404, `Grade ${m[1]} not found`);
-    if (!g.published) { g.published = true; g.published_at = nowIso(); }
-    return reply(200, g);
-  }
-
-  // GET /api/v1/appeals?status= — exists.
-  if (method === 'GET' && p === '/api/v1/appeals') {
-    const status = q.get('status');
-    return reply(200, FAKE.appeals.filter(a => !status || a.status === status).map(appealView));
-  }
-
-  // PUT /api/v1/appeals/:id/status — exists. Same transitions and messages as appealController.
-  if (method === 'PUT' && (m = p.match(/^\/api\/v1\/appeals\/(\d+)\/status$/))) {
-    const STATUSES = ['pending', 'under_review', 'resolved_approved', 'resolved_rejected'];
-    const NEXT = { pending: ['under_review'], under_review: ['resolved_approved', 'resolved_rejected'], resolved_approved: [], resolved_rejected: [] };
-    if (!STATUSES.includes(body?.status)) return err(400, `status must be one of: ${STATUSES.join(', ')}`);
-    const response = typeof body.instructorResponse === 'string' ? body.instructorResponse.trim() || null : null;
-    const hasL = body.newGradeLetter != null, hasP = body.newGradePoints != null;
-    if (hasL !== hasP) return err(400, 'newGradeLetter and newGradePoints must be provided together');
-    if (hasL && body.status !== 'resolved_approved') return err(400, 'newGradeLetter/newGradePoints are only allowed when status is resolved_approved');
-    const newLetter = hasL ? String(body.newGradeLetter).trim().toUpperCase() : null;
-    if (hasL && !LETTERS.includes(newLetter)) return err(400, `newGradeLetter must be one of: ${LETTERS.join(', ')}`);
-    if (hasP && !validPoints(body.newGradePoints)) return err(400, 'newGradePoints must be a number from 0 to 4 with at most 2 decimal places');
-    const a = FAKE.appeals.find(x => x.id === Number(m[1]));
-    if (!a) return err(404, `Appeal ${m[1]} not found`, { code: 'APPEAL_NOT_FOUND' });
-    if (!NEXT[a.status].includes(body.status)) {
-      const next = NEXT[a.status].length ? `allowed next: ${NEXT[a.status].join(', ')}` : 'it is already resolved';
-      return err(400, `Cannot move appeal ${a.id} from ${a.status} to ${body.status} (${next})`, { code: 'INVALID_TRANSITION' });
-    }
-    const resolving = body.status.startsWith('resolved_');
-    if (resolving && !response) return err(400, `instructorResponse is required to move an appeal to ${body.status}`, { code: 'RESPONSE_REQUIRED' });
-    a.status = body.status;
-    if (response) a.instructor_response = response;
-    if (resolving) a.resolved_at = nowIso();
-    if (hasL) {
-      const g = FAKE.grades.find(x => x.id === a.grade_id);
-      g.grade_letter = newLetter; g.grade_points = body.newGradePoints; g.published_at = nowIso();
-    }
-    return reply(200, appealView(a));
-  }
-
-  return err(404, `Fake API has no route for ${method} ${p}`);
+  // 204 No Content has no body.
+  let data = res.status === 204 ? null : await res.json().catch(() => null);
+  if (data && data.error && typeof data.error === 'object') data = { ...data, code: data.error.code, error: data.error.message };
+  if (res.status === 401) { clearSession(); requireSession(); }
+  return { status: res.status, data };
 }
 
-// The one swap point: every screen below calls apiCall(). See the bottom of the file.
-const apiCall = fakeApi;
-/* ===================== END FAKE DATA + FAKE API ===================== */
+// Ends the session on the server and goes back to the sign-in page.
+async function erpSignOut() {
+  const { signOut } = await erpSession;
+  await signOut();
+  location.assign('/auth/');
+}
+
+// The signed-in user's email, for the top bar.
+async function currentUserName(fallback) {
+  try {
+    const { api } = await erpSession;
+    const me = await api('/api/v1/auth/me');
+    return me.email || fallback;
+  } catch (e) {
+    return fallback;
+  }
+}
 
 
 /* ============================================================
@@ -1514,7 +1268,7 @@ try { if (localStorage.getItem('sidebarCollapsed') === 'true') $('sidebar').clas
    ============================================================ */
 
 (async function init() {
-  const name = FAKE_INSTRUCTOR_NAME();
+  const name = await currentUserName('Instructor');
   $('topAvatar').textContent = initials(name);
   $('topName').textContent = name;
   showView(location.hash.slice(1) || 'grading');
@@ -1547,45 +1301,7 @@ try { if (localStorage.getItem('sidebarCollapsed') === 'true') $('sidebar').clas
   await Promise.all([loadGrading(), loadAttendanceOffering(), renderDashboardAndCourses()]);
 })();
 
-// ⚠ The logged-in user will come from the Auth service. Until then, the fake instructor's name.
-function FAKE_INSTRUCTOR_NAME() { return typeof FAKE !== 'undefined' ? FAKE.instructor.name : 'Instructor'; }
 
-/* ============================================================
-   REAL API — to switch from fake data:
-     1. Delete the "FAKE DATA + FAKE API" block near the top.
-     2. Un-comment this apiCall(). It returns { status, data } like the fake one,
-        so nothing else on the page changes.
-     3. Set GATEWAY_URL at the top if you're going through the gateway.
-
-   Endpoints this page uses:
-     exist today:  POST /api/v1/sessions
-                   GET  /api/v1/attendance/session/:sessionId
-                   POST /api/v1/attendance
-                   POST /api/v1/grades
-                   PUT  /api/v1/grades/:id/publish
-                   GET  /api/v1/appeals
-                   PUT  /api/v1/appeals/:id/status
-     ⚠ missing:    GET  /api/v1/instructors/me/offerings        (courses have no instructor yet)
-                   GET  /api/v1/courses/:courseId/roster?semesterId=
-                   GET  /api/v1/sessions?courseId=&semesterId=  (with attendance_count)
-                   GET  /api/v1/grades?courseId=&semesterId=
-
-   async function apiCall(method, path, body) {
-     const headers = {};
-     if (body !== undefined) headers['Content-Type'] = 'application/json';
-     // Once the Auth service is ready:
-     // const token = localStorage.getItem('token');
-     // if (token) headers['Authorization'] = 'Bearer ' + token;
-     const res = await fetch(GATEWAY_URL + path, {
-       method,
-       headers,
-       body: body === undefined ? undefined : JSON.stringify(body),
-     });
-     // 204 No Content has no body; error responses are JSON { error }.
-     const data = res.status === 204 ? null : await res.json().catch(() => null);
-     return { status: res.status, data };
-   }
-   ============================================================ */
 </script>
 </body>
 </html>

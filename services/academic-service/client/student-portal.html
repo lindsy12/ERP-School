@@ -234,11 +234,20 @@
 
 <nav class="sidebar" id="sidebar">
   <div class="sidebar-head">
-    <div class="brand"><div class="brand-mark">U</div><span class="brand-label">UniERP</span></div>
+    <div class="brand"><div class="brand-mark">U</div><span class="brand-label">School ERP</span></div>
     <button class="collapse-btn" onclick="toggleSidebar()" title="Collapse sidebar">
       <svg viewBox="0 0 20 20" fill="none" width="14" height="14"><path d="M12 4l-6 6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
   </div>
+
+  <a class="nav-item" href="/academic/" title="Academics home">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span class="nav-label">Academics home</span>
+  </a>
+  <a class="nav-item" href="/auth/#/home" title="ERP home">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M3 12l9-9 9 9M5 10v10h14V10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span class="nav-label">ERP home</span>
+  </a>
 
   <div class="nav-section-label">Academics</div>
   <button class="nav-item active" data-view="dashboard" onclick="showView('dashboard', this)">

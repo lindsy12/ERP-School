@@ -1,10 +1,10 @@
 const programModel = require('../models/programModel');
 
-// Express route handlers for /api/v1/programs.
+// Express route handlers for /api/v1/academic/programs.
 // Controllers validate the request, call model functions, and pick the HTTP status code.
 // They don't write SQL; that lives in the model.
 
-// POST /api/v1/programs
+// POST /api/v1/academic/programs
 // Creates a program. `name` is required; `description` is optional.
 // Why validate here: bad input fails fast with a clear 400 and never reaches the database.
 async function createProgram(req, res) {
@@ -36,7 +36,7 @@ async function createProgram(req, res) {
   }
 }
 
-// GET /api/v1/programs
+// GET /api/v1/academic/programs
 // Lists all programs. An empty table returns 200 with [], not 404,
 // because the collection exists even when it has no items.
 async function listPrograms(req, res) {

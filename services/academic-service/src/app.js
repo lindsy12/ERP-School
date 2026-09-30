@@ -1,12 +1,14 @@
 require('dotenv').config();
+const path = require('path');
 const express = require('express');
-const cors = require('cors');
 const pool = require('./db');
+const { identify, staffWritesOnly } = require('./middleware/identity');
 const programRoutes = require('./routes/programRoutes');
 const courseRoutes = require('./routes/courseRoutes');
 const enrollmentRoutes = require('./routes/enrollmentRoutes');
 const studentRoutes = require('./routes/studentRoutes');
 const studentRecordRoutes = require('./routes/studentRecordRoutes');
+const semesterRoutes = require('./routes/semesterRoutes');
 const sessionRoutes = require('./routes/sessionRoutes');
 const attendanceRoutes = require('./routes/attendanceRoutes');
 const gradeRoutes = require('./routes/gradeRoutes');
@@ -14,10 +16,11 @@ const atRiskRoutes = require('./routes/atRiskRoutes');
 const examRoutes = require('./routes/examRoutes');
 const appealRoutes = require('./routes/appealRoutes');
 const transcriptRoutes = require('./routes/transcriptRoutes');
-const rabbitmq = require('./services/rabbitmq');
+const instructorRoutes = require('./routes/instructorRoutes');
 
+// Builds the app without starting it (src/server.js listens), so tests can use it directly.
 const app = express();
-app.use(cors());
+app.disable('x-powered-by');
 app.use(express.json());
 
 app.get('/health', async (req, res) => {
@@ -25,26 +28,36 @@ app.get('/health', async (req, res) => {
     await pool.query('SELECT 1');
     res.json({ status: 'ok', service: 'academic-service', db: 'connected' });
   } catch (err) {
-    res.status(500).json({ status: 'error', message: err.message });
+    res.status(500).json({ status: 'error', service: 'academic-service', db: 'not connected' });
   }
 });
 
-// Feature routers, versioned under /api/v1 so a future v2 can live alongside them.
-app.use('/api/v1/programs', programRoutes);
-app.use('/api/v1/courses', courseRoutes);
-app.use('/api/v1/enrollments', enrollmentRoutes);
-app.use('/api/v1/students', studentRoutes);
+// Academic web pages (client/). The gateway forwards GET /academic/* here without a token check,
+// so only static files may live under this path.
+app.use('/academic', express.static(path.join(__dirname, '..', 'client')));
+
+// Every API route lives under /api/v1/academic: the gateway forwards that prefix here unchanged.
+const api = express.Router();
+api.use(identify, staffWritesOnly);
+api.use('/programs', programRoutes);
+api.use('/courses', courseRoutes);
+api.use('/enrollments', enrollmentRoutes);
+api.use('/students', studentRoutes);
 // Second router on the same path: requests that studentRoutes doesn't match fall through here.
-app.use('/api/v1/students', studentRecordRoutes);
-app.use('/api/v1/sessions', sessionRoutes);
-app.use('/api/v1/attendance', attendanceRoutes);
-app.use('/api/v1/grades', gradeRoutes);
-app.use('/api/v1/exams', examRoutes);
-// Holds full paths (/students/:studentId/at-risk and /at-risk-students), so it's mounted at /api/v1.
-app.use('/api/v1', atRiskRoutes);
-// Also hold full paths (/grades/:gradeId/appeals, /appeals/..., /students/:studentId/transcript/pdf).
-app.use('/api/v1', appealRoutes);
-app.use('/api/v1', transcriptRoutes);
+api.use('/students', studentRecordRoutes);
+api.use('/semesters', semesterRoutes);
+api.use('/sessions', sessionRoutes);
+api.use('/attendance', attendanceRoutes);
+api.use('/grades', gradeRoutes);
+api.use('/exams', examRoutes);
+api.use('/instructors', instructorRoutes);
+// These hold full paths (/students/:studentId/at-risk, /grades/:gradeId/appeals, ...), so they
+// are mounted at the root of the API router.
+api.use(atRiskRoutes);
+api.use(appealRoutes);
+api.use(transcriptRoutes);
+api.use((req, res) => res.status(404).json({ error: `Route ${req.method} ${req.originalUrl} not found` }));
+app.use('/api/v1/academic', api);
 
 // Error handler for errors thrown outside our controllers' try/catch, most commonly
 // malformed JSON caught by express.json(). Without this, Express replies with an HTML
@@ -56,13 +69,7 @@ app.use((err, req, res, next) => {
     return res.status(400).json({ error: 'Request body is not valid JSON' });
   }
   console.error('Unhandled error:', err);
-  res.status(err.status || 500).json({ error: 'Internal server error' });
+  return res.status(err.status || 500).json({ error: 'Internal server error' });
 });
 
-const PORT = process.env.PORT || 4002;
-app.listen(PORT, () => {
-  console.log(`Academic service running on port ${PORT}`);
-  // Connect to RabbitMQ in the background so config problems show up in the logs right away.
-  // It never throws, and the service stays up even if the broker is unreachable.
-  rabbitmq.connect();
-});
+module.exports = app;

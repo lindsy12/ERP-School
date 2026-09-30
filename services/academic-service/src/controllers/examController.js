@@ -10,7 +10,7 @@ const {
   toDateString,
 } = require('../utils/validation');
 
-// Express route handlers for /api/v1/exams.
+// Express route handlers for /api/v1/academic/exams.
 // Conflict rule: two exams conflict if they're in the SAME room, on the SAME date, and their
 // time ranges overlap (see examModel.findConflictingExams for the math). Create and update
 // both check this under a per-room lock, and refuse with 409 if anything overlaps.
@@ -134,7 +134,7 @@ function handleKnownError(err, res) {
 
 // ---------- handlers ----------
 
-// POST /api/v1/exams
+// POST /api/v1/academic/exams
 // Body: { courseId, semesterId, examDate: "YYYY-MM-DD", startTime: "HH:MM", endTime: "HH:MM", room }.
 // Validates (400), checks references (400), then, under the room lock, looks for overlapping
 // exams in that room and date. If any exist it returns 409 naming them and saves nothing;
@@ -169,7 +169,7 @@ async function createExam(req, res) {
   }
 }
 
-// GET /api/v1/exams?semesterId=&courseId=
+// GET /api/v1/academic/exams?semesterId=&courseId=
 // Lists exams in timetable order. Both query params are optional, and can be combined.
 // A present but invalid filter is a 400. Silently ignoring it would return *every* exam,
 // which looks like a correct answer but isn't.
@@ -192,7 +192,7 @@ async function listExams(req, res) {
   }
 }
 
-// GET /api/v1/exams/:id
+// GET /api/v1/academic/exams/:id
 // Returns one exam with course and semester names; 404 if it doesn't exist.
 async function getExam(req, res) {
   const id = parseId(req.params.id);
@@ -208,7 +208,7 @@ async function getExam(req, res) {
   }
 }
 
-// PUT /api/v1/exams/:id
+// PUT /api/v1/academic/exams/:id
 // Full replace (same body as POST). Re-runs the conflict check against the NEW room, date and
 // times, excluding this exam's own id. Otherwise nudging an exam by 15 minutes would
 // "conflict" with its own current slot. On a conflict: 409 and the exam is left unchanged.
@@ -249,7 +249,7 @@ async function updateExam(req, res) {
   }
 }
 
-// DELETE /api/v1/exams/:id
+// DELETE /api/v1/academic/exams/:id
 // Removes an exam, freeing its room slot. 204 on success, 404 if it doesn't exist.
 async function deleteExam(req, res) {
   const id = parseId(req.params.id);
