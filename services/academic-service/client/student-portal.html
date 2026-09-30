@@ -60,8 +60,8 @@
   /* ---------- Main / Topbar ---------- */
   .main { flex: 1; min-width: 0; }
   .topbar { display: flex; align-items: center; gap: 14px; padding: 16px 28px; background: var(--panel); border-bottom: 1px solid var(--border); }
-  .search-wrap { flex: 1; display: flex; gap: 8px; max-width: 560px; }
-  .search-input { flex: 1; padding: 9px 13px; border: 1px solid var(--border); border-radius: 9px; font-size: .87rem; font-family: inherit; background: var(--bg); }
+  .search-wrap { flex: 1; display: flex; gap: 8px; max-width: 560px; min-width: 0; }
+  .search-input { flex: 1; min-width: 0; padding: 9px 13px; border: 1px solid var(--border); border-radius: 9px; font-size: .87rem; font-family: inherit; background: var(--bg); }
   .module-select { padding: 9px 11px; border: 1px solid var(--border); border-radius: 9px; font-size: .85rem; font-family: inherit; background: var(--bg); color: var(--text-muted); }
   .search-btn { padding: 9px 16px; border-radius: 9px; border: none; background: var(--text); color: #fff; font-size: .85rem; font-weight: 600; cursor: pointer; }
 
@@ -217,6 +217,17 @@
   .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 28px; padding: 4px 22px 22px; }
   .detail-label { font-size: .74rem; color: var(--text-muted); margin-bottom: 3px; }
   .detail-value { font-size: .9rem; font-weight: 700; }
+
+  /* ---------- Small-screen fix: auto-collapse sidebar so it never forces
+     horizontal scroll on a phone-width viewport. The manual collapse toggle
+     still works normally above this width. ---------- */
+  @media (max-width: 700px) {
+    .sidebar { width: var(--sidebar-w-collapsed); }
+    .sidebar .nav-label, .sidebar .brand-label { display: none; }
+    .sidebar .collapse-btn { display: none; }
+    .search-wrap { display: none; }
+    .content { padding: 16px; }
+  }
 </style>
 </head>
 <body>
@@ -435,7 +446,7 @@
           <div><div class="profile-name" id="profileName">Amara Ngu</div><div class="profile-role">Computer Science — Year 3</div></div>
         </div>
         <div class="detail-grid">
-          <div><div class="detail-label">Matriculation number</div><div class="detail-value" id="profileMatric">ICTU20240873</div></div>
+          <div><div class="detail-label">Matriculation number</div><div class="detail-value" id="profileMatric">UNI20240873</div></div>
           <div><div class="detail-label">Program</div><div class="detail-value">B.Sc. Computer Science</div></div>
           <div><div class="detail-label">Enrolled since</div><div class="detail-value" id="profileEnrolled">September 2024</div></div>
           <div><div class="detail-label">Current semester</div><div class="detail-value">Fall 2026 (5th)</div></div>
@@ -455,7 +466,7 @@
    ============================================================ */
 
 const student = {
-  name: "Amara Ngu", matricNumber: "ICTU20240873", program: "B.Sc. Computer Science",
+  name: "Amara Ngu", matricNumber: "UNI20240873", program: "B.Sc. Computer Science",
   enrolledDate: "2024-09-01", currentSemesterLabel: "Fall 2026",
   cumulativeGpa: 3.42, attendancePercent: 87
 };
@@ -483,10 +494,10 @@ const courseCatalog = [
 const transcript = [
   { label: "Fall 2026", gpa: 3.5, courses: [
     { id: 1, code: "CS301", title: "Database Systems", grade: "A", points: 4.0, appeal: null },
-    { id: 2, code: "CS220", title: "Discrete Mathematics II", grade: "B+", points: 3.5, appeal: "pending" }
+    { id: 2, code: "CS220", title: "Discrete Mathematics II", grade: "B", points: 3.0, appeal: "pending" }
   ]},
   { label: "Spring 2026", gpa: 3.3, courses: [
-    { id: 3, code: "CS201", title: "Data Structures", grade: "A-", points: 3.7, appeal: null },
+    { id: 3, code: "CS201", title: "Data Structures", grade: "A", points: 4.0, appeal: null },
     { id: 4, code: "CS210", title: "Computer Architecture", grade: "B", points: 3.0, appeal: null }
   ]}
 ];

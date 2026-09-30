@@ -1,0 +1,1591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Instructor — Grading & Attendance — UniERP</title>
+<style>
+  /* ============================================================
+     SHARED DESIGN SYSTEM — copied verbatim from student-portal.html.
+     Keep in sync with that file; page-specific styles are further down.
+     ============================================================ */
+  :root {
+    --sidebar-w: 226px;
+    --sidebar-w-collapsed: 74px;
+
+    --bg: #F4F6FA;
+    --panel: #FFFFFF;
+    --text: #1B1F27;
+    --text-muted: #7C8194;
+    --border: #E7E9F0;
+
+    --brand: #2563EB;
+    --brand-dark: #1D4ED8;
+    --brand-soft: #DBEAFE;
+    --brand-text: #1D4ED8;
+
+    --green: #16A34A; --green-bg: #DCFCE7;
+    --red: #DC2626; --red-bg: #FEE2E2;
+    --amber: #D97706; --amber-bg: #FEF3C7;
+
+    --radius: 12px;
+    --shadow: 0 1px 2px rgba(20,20,30,0.04), 0 2px 10px rgba(20,20,30,0.05);
+  }
+
+  * { box-sizing: border-box; }
+  @media (prefers-reduced-motion: reduce) { *,*::before,*::after{ animation-duration:.01ms!important; transition-duration:.01ms!important; } }
+
+  body { margin: 0; font-family: 'Inter', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); display: flex; min-height: 100vh; }
+  a { color: inherit; }
+  :focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar { width: var(--sidebar-w); background: var(--panel); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; padding: 18px 12px; position: sticky; top: 0; height: 100vh; transition: width .18s ease; }
+  .sidebar.collapsed { width: var(--sidebar-w-collapsed); }
+  .sidebar-head { display: flex; align-items: center; justify-content: space-between; padding: 2px 8px 18px; margin-bottom: 6px; }
+  .brand { display: flex; align-items: center; gap: 9px; font-weight: 800; font-size: 1.05rem; white-space: nowrap; overflow: hidden; letter-spacing: -0.01em; }
+  .brand-mark { width: 28px; height: 28px; border-radius: 8px; background: linear-gradient(135deg, var(--brand), var(--brand-dark)); flex-shrink: 0; display:flex; align-items:center; justify-content:center; color:#fff; font-size:.8rem; font-weight:800; }
+  .sidebar.collapsed .brand-label { display: none; }
+  .collapse-btn { width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--border); background: var(--panel); cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text-muted); flex-shrink: 0; }
+  .collapse-btn:hover { background: var(--bg); }
+  .sidebar.collapsed .collapse-btn svg { transform: rotate(180deg); }
+
+  .nav-section-label { font-size: .7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; padding: 14px 12px 6px; }
+  .sidebar.collapsed .nav-section-label { display: none; }
+
+  .nav-item { display: flex; align-items: center; gap: 11px; padding: 9px 12px; color: var(--text-muted); text-decoration: none; font-size: .89rem; border-radius: 9px; cursor: pointer; background: none; border: none; width: 100%; text-align: left; font-family: inherit; margin-bottom: 1px; white-space: nowrap; overflow: hidden; }
+  .nav-item svg { flex-shrink: 0; width: 18px; height: 18px; }
+  .nav-item:hover { background: var(--bg); color: var(--text); }
+  .nav-item.active { background: var(--brand-soft); color: var(--brand-text); font-weight: 600; }
+  .sidebar.collapsed .nav-label { display: none; }
+  .sidebar.collapsed .nav-item { justify-content: center; }
+  .sidebar-footer { margin-top: auto; padding-top: 12px; border-top: 1px solid var(--border); }
+
+  /* ---------- Main / Topbar ---------- */
+  .main { flex: 1; min-width: 0; }
+  .topbar { display: flex; align-items: center; gap: 14px; padding: 16px 28px; background: var(--panel); border-bottom: 1px solid var(--border); }
+  .search-wrap { flex: 1; display: flex; gap: 8px; max-width: 560px; }
+  .search-input { flex: 1; padding: 9px 13px; border: 1px solid var(--border); border-radius: 9px; font-size: .87rem; font-family: inherit; background: var(--bg); }
+  .module-select { padding: 9px 11px; border: 1px solid var(--border); border-radius: 9px; font-size: .85rem; font-family: inherit; background: var(--bg); color: var(--text-muted); }
+  .search-btn { padding: 9px 16px; border-radius: 9px; border: none; background: var(--text); color: #fff; font-size: .85rem; font-weight: 600; cursor: pointer; }
+
+  .topbar-right { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+  .icon-btn { width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--border); background: var(--panel); display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-muted); position: relative; }
+  .icon-btn:hover { background: var(--bg); }
+  .icon-btn .dot { position: absolute; top: 7px; right: 7px; width: 7px; height: 7px; background: var(--red); border-radius: 50%; border: 1.5px solid #fff; }
+  .user-chip { display: flex; align-items: center; gap: 8px; padding: 5px 10px 5px 5px; border-radius: 10px; cursor: pointer; }
+  .user-chip:hover { background: var(--bg); }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--brand-soft); color: var(--brand-text); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: .78rem; flex-shrink: 0; }
+  .user-name { font-size: .85rem; font-weight: 600; white-space: nowrap; }
+
+  .breadcrumb { padding: 12px 28px; font-size: .82rem; color: var(--text-muted); background: var(--bg); }
+  .breadcrumb b { color: var(--text); font-weight: 600; }
+
+  .content { padding: 20px 28px 32px; }
+  .view { display: none; animation: fadeIn .2s ease; }
+  .view.active { display: block; }
+  @keyframes fadeIn { from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:translateY(0);} }
+
+  .page-heading { display:flex; align-items:center; gap:10px; margin: 2px 0 18px; }
+  .page-heading svg { color: var(--brand); width:22px; height:22px; }
+  .page-heading h1 { font-size: 1.32rem; font-weight: 800; margin: 0; letter-spacing: -0.01em; }
+
+  .stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px; }
+  @media (max-width: 560px) { .stat-row { grid-template-columns: 1fr; } }
+  .stat-card { border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); }
+  .stat-card.brand-fill { background: linear-gradient(135deg, var(--brand), var(--brand-dark)); color: #fff; }
+  .stat-label { font-size: .8rem; font-weight: 600; opacity: .85; margin-bottom: 6px; }
+  .stat-number { font-size: 2.2rem; font-weight: 800; line-height: 1; letter-spacing: -0.02em; }
+  .stat-unit { font-size: .95rem; opacity: .7; font-weight: 500; }
+  .stat-note { margin-top: 7px; font-size: .8rem; opacity: .75; }
+
+  .section-title { font-size: 1rem; font-weight: 700; margin: 4px 0 12px; }
+
+  /* ---------- Course cards (banner + progress) ---------- */
+  .course-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+  .course-card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
+  .course-banner { position: relative; height: 84px; display: flex; align-items: flex-start; justify-content: flex-end; padding: 8px; }
+  .course-banner.b1 { background: linear-gradient(135deg,#F472B6,#DB2777); }
+  .course-banner.b2 { background: linear-gradient(135deg,#2DD4BF,#0D9488); }
+  .course-banner.b3 { background: linear-gradient(135deg,#FBBF24,#B45309); }
+  .course-banner.b4 { background: linear-gradient(135deg,#60A5FA,#2563EB); }
+  .course-banner.b5 { background: linear-gradient(135deg,#818CF8,#4F46E5); }
+  .progress-pill { position: absolute; bottom: 8px; left: 8px; background: rgba(0,0,0,0.32); color: #fff; font-size: .68rem; font-weight: 700; padding: 3px 8px; border-radius: 20px; }
+  .progress-strip { position: absolute; bottom: 0; left: 0; right: 0; height: 4px; background: rgba(255,255,255,0.35); }
+  .progress-strip-fill { height: 100%; background: #fff; }
+  .course-card-body { padding: 12px 14px 14px; }
+  .course-card-tag { font-size: .7rem; color: var(--text-muted); font-weight: 600; margin-bottom: 3px; text-transform: uppercase; letter-spacing: .03em; }
+  .course-card-title { font-size: .89rem; font-weight: 700; line-height: 1.3; }
+  .course-card-meta { font-size: .78rem; color: var(--text-muted); margin-top: 5px; }
+
+  /* ---------- Panels / tables (shared) ---------- */
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); margin-bottom: 16px; }
+  .panel-title { font-size: .98rem; font-weight: 700; margin: 0 0 4px; }
+  .panel-sub { font-size: .82rem; color: var(--text-muted); margin-bottom: 16px; }
+
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-size: .72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: .02em; padding: 10px; background: var(--bg); border-bottom: 1px solid var(--border); }
+  th:first-child { border-radius: 8px 0 0 8px; } th:last-child { border-radius: 0 8px 8px 0; }
+  td { padding: 12px 10px; border-bottom: 1px solid var(--border); font-size: .87rem; }
+  tr:last-child td { border-bottom: none; }
+
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: .74rem; font-weight: 700; }
+  .badge-green { background: var(--green-bg); color: var(--green); }
+  .badge-red { background: var(--red-bg); color: var(--red); }
+  .badge-amber { background: var(--amber-bg); color: var(--amber); }
+  .badge-blue { background: var(--brand-soft); color: var(--brand-text); }
+
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 15px; border-radius: 9px; border: none; font-size: .84rem; font-weight: 700; cursor: pointer; font-family: inherit; }
+  .btn-primary { background: var(--brand); color: #fff; }
+  .btn-primary:hover { background: var(--brand-dark); }
+  .btn-outline { background: var(--panel); border: 1px solid var(--border); color: var(--text); }
+  .btn-outline:hover { border-color: var(--brand); color: var(--brand-text); }
+  .btn-sm { padding: 5px 11px; font-size: .76rem; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+  input, select, textarea { padding: 8px 11px; border: 1px solid var(--border); border-radius: 8px; font-size: .87rem; font-family: inherit; width: 100%; background: var(--panel); }
+  label { display: block; font-size: .78rem; font-weight: 600; margin-bottom: 5px; color: var(--text-muted); }
+
+  /* ============================================================
+     PAGE-SPECIFIC — built only from the tokens above.
+     ============================================================ */
+
+  /* The hidden attribute must win over any display: set by a class (e.g. .submit-bar is flex). */
+  [hidden] { display: none !important; }
+
+  /* FIX for a bug inherited from student-portal.html: the global `input, select { width: 100% }` rule
+     makes the module <select> fill the search bar and squashes the search input to ~28px.
+     The portal has the same bug; apply this same fix there when it's next edited. */
+  .search-wrap .search-input { width: auto; min-width: 0; }
+  .search-wrap .module-select { width: auto; flex: 0 0 auto; }
+
+  /* Inline messages: same look as the portal's .prereq-warning / .enroll-success, plus info/warn. */
+  .alert { font-size: .8rem; padding: 9px 12px; border-radius: 8px; margin-top: 10px; line-height: 1.45; }
+  .alert-error { background: var(--red-bg); color: var(--red); }
+  .alert-success { background: var(--green-bg); color: var(--green); }
+  .alert-warn { background: var(--amber-bg); color: var(--amber); }
+  .alert-info { background: var(--brand-soft); color: var(--brand-text); }
+  .alert b { font-weight: 700; }
+
+  .stat-row.four { grid-template-columns: repeat(4, 1fr); }
+  @media (max-width: 1100px) { .stat-row.four { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 560px) { .stat-row.four { grid-template-columns: 1fr; } }
+  .stat-card.plain { background: var(--panel); border: 1px solid var(--border); }
+  .stat-card.plain .stat-label { color: var(--text-muted); opacity: 1; }
+  .stat-card.plain .stat-note { color: var(--text-muted); opacity: 1; }
+  button.stat-card { text-align: left; font-family: inherit; color: inherit; cursor: pointer; width: 100%; }
+  button.stat-card.plain:hover { border-color: var(--brand); }
+
+  .course-card-actions { display: flex; gap: 8px; margin-top: 12px; }
+
+  /* Selector bar at the top of Attendance / Grading */
+  .picker-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; align-items: end; }
+  .picker-grid .picker-action { display: flex; gap: 8px; }
+
+  .inline-form { margin-top: 14px; padding: 14px; background: var(--bg); border-radius: 10px; }
+  .inline-form[hidden] { display: none; }
+  .inline-form .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; align-items: end; }
+
+  .roster-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+  .count-chip { font-size: .76rem; font-weight: 700; color: var(--text-muted); padding: 3px 9px; border-radius: 20px; background: var(--bg); }
+  .count-chip.present { background: var(--green-bg); color: var(--green); }
+  .count-chip.absent { background: var(--red-bg); color: var(--red); }
+  .count-chip.late { background: var(--amber-bg); color: var(--amber); }
+
+  .table-wrap { overflow-x: auto; }
+  .student-cell { display: flex; flex-direction: column; }
+  .student-name { font-weight: 600; }
+  .student-matric { font-size: .74rem; color: var(--text-muted); margin-top: 1px; }
+  .muted { color: var(--text-muted); }
+  .row-num { color: var(--text-muted); font-size: .78rem; width: 34px; }
+
+  /* Compact Present / Absent / Late selector (radio group styled as a segmented control) */
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 9px; overflow: hidden; background: var(--panel); }
+  .seg input { position: absolute; opacity: 0; width: 1px; height: 1px; padding: 0; margin: 0; pointer-events: none; }
+  .seg label { margin: 0; padding: 5px 11px; font-size: .76rem; font-weight: 700; color: var(--text-muted); cursor: pointer; border-right: 1px solid var(--border); display: block; user-select: none; }
+  .seg label:last-of-type { border-right: none; }
+  .seg label:hover { background: var(--bg); color: var(--text); }
+  .seg input:checked + label.present { background: var(--green-bg); color: var(--green); }
+  .seg input:checked + label.absent { background: var(--red-bg); color: var(--red); }
+  .seg input:checked + label.late { background: var(--amber-bg); color: var(--amber); }
+  .seg input:focus-visible + label { outline: 2px solid var(--brand); outline-offset: -2px; }
+
+  .submit-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+  .submit-bar .muted { font-size: .8rem; }
+
+  /* Grading table */
+  .grade-select { width: 76px; padding: 6px 8px; }
+  .points-input { width: 84px; padding: 6px 8px; }
+  .grade-cell-locked { font-weight: 700; }
+  .status-cell { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+  .row-actions { display: flex; gap: 6px; justify-content: flex-end; white-space: nowrap; }
+  .unsaved { font-size: .7rem; color: var(--amber); font-weight: 700; }
+  tr.detail-row td { padding-top: 0; }
+  tr.detail-row[hidden] { display: none; }
+  .lock-note { display: inline-flex; align-items: center; gap: 5px; font-size: .76rem; color: var(--text-muted); }
+  .lock-note svg { width: 13px; height: 13px; }
+
+  .appeal-box { background: var(--bg); border-radius: 10px; padding: 14px; margin-top: 2px; }
+  .appeal-quote { font-size: .84rem; border-left: 3px solid var(--border); padding: 2px 0 2px 10px; margin: 6px 0 10px; }
+  .appeal-meta { font-size: .74rem; color: var(--text-muted); }
+  .decision-row { display: flex; gap: 16px; margin: 10px 0; flex-wrap: wrap; }
+  .decision-row label { display: inline-flex; align-items: center; gap: 6px; margin: 0; color: var(--text); font-size: .84rem; cursor: pointer; }
+  .decision-row input { width: auto; }
+  .appeal-box textarea { min-height: 60px; resize: vertical; }
+  .regrade-fields { display: flex; gap: 10px; align-items: end; margin-top: 10px; flex-wrap: wrap; }
+  .regrade-fields[hidden] { display: none; }
+
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: .78rem; color: var(--text-muted); margin-bottom: 12px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+
+  .empty-state { text-align: center; color: var(--text-muted); padding: 28px 10px; font-size: .87rem; }
+  .loading { color: var(--text-muted); font-size: .84rem; padding: 14px 0; }
+
+  /* Two-step confirmation for irreversible actions (publish) — no confirm() popups. */
+  .btn.confirming { background: var(--amber); color: #fff; }
+
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+</style>
+</head>
+<body>
+
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-head">
+    <div class="brand"><div class="brand-mark">U</div><span class="brand-label">UniERP</span></div>
+    <button class="collapse-btn" onclick="toggleSidebar()" title="Collapse sidebar">
+      <svg viewBox="0 0 20 20" fill="none" width="14" height="14"><path d="M12 4l-6 6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+  </div>
+
+  <div class="nav-section-label">Teaching</div>
+  <button class="nav-item" data-view="dashboard" onclick="showView('dashboard')">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M3 12l9-9 9 9M5 10v10h5v-6h4v6h5V10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span class="nav-label">Dashboard</span>
+  </button>
+  <button class="nav-item" data-view="courses" onclick="showView('courses')">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M4 19.5V6a2 2 0 012-2h12a2 2 0 012 2v13.5M4 19.5A2.5 2.5 0 016.5 17H20M4 19.5A2.5 2.5 0 006.5 22H20v-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span class="nav-label">My Courses</span>
+  </button>
+  <button class="nav-item active" data-view="grading" onclick="showView('grading')">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M9 4h6a1 1 0 011 1v1H8V5a1 1 0 011-1z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2V7a2 2 0 00-2-2h-2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8.5 13.5l2.5 2.5 4.5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span class="nav-label">Grading</span>
+  </button>
+  <button class="nav-item" data-view="attendance" onclick="showView('attendance')">
+    <svg viewBox="0 0 24 24" fill="none"><circle cx="9" cy="8" r="4" stroke="currentColor" stroke-width="1.8"/><path d="M2 21c0-3.9 3.1-7 7-7 1.5 0 2.9.5 4 1.3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M15 18l2 2 4-4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span class="nav-label">Attendance</span>
+  </button>
+
+  <div class="sidebar-footer">
+    <button class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="nav-label">Log out</span>
+    </button>
+  </div>
+</nav>
+
+<div class="main">
+  <div class="topbar">
+    <div class="search-wrap">
+      <input class="search-input" placeholder="Search students, courses, appeals..." aria-label="Search">
+      <select class="module-select" aria-label="Module">
+        <option>All Modules</option>
+        <option>Courses</option>
+        <option>Grading</option>
+        <option>Attendance</option>
+        <option>Appeals</option>
+      </select>
+      <button class="search-btn">Search</button>
+    </div>
+    <div class="topbar-right">
+      <button class="icon-btn" title="Notifications">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="dot"></span>
+      </button>
+      <div class="user-chip">
+        <div class="avatar" id="topAvatar"></div>
+        <span class="user-name" id="topName"></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="breadcrumb" id="breadcrumb"><b>Home</b> &nbsp;›&nbsp; Grading</div>
+
+  <div class="content">
+
+    <!-- ========== DASHBOARD ========== -->
+    <div class="view" id="view-dashboard">
+      <div class="stat-row four" id="dashStats"><div class="loading">Loading…</div></div>
+      <div class="section-title" id="dashCoursesTitle">My Courses</div>
+      <div class="course-grid" id="dashCourseGrid"></div>
+    </div>
+
+    <!-- ========== MY COURSES ========== -->
+    <div class="view" id="view-courses">
+      <div class="panel">
+        <div class="panel-title">Course offerings</div>
+        <div class="panel-sub">Every course you teach, by semester.</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Course</th><th>Semester</th><th>Students</th><th>Grades published</th><th></th></tr></thead>
+            <tbody id="offeringRows"><tr><td colspan="5" class="loading">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== GRADING ========== -->
+    <div class="view active" id="view-grading">
+      <div class="page-heading">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M9 4h6a1 1 0 011 1v1H8V5a1 1 0 011-1z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2V7a2 2 0 00-2-2h-2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8.5 13.5l2.5 2.5 4.5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <h1>Grading</h1>
+      </div>
+
+      <div class="panel">
+        <div class="picker-grid">
+          <div><label for="gradeCourse">Course</label><select id="gradeCourse"></select></div>
+          <div><label for="gradeSemester">Semester</label><select id="gradeSemester"></select></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="roster-head">
+          <div>
+            <div class="panel-title" id="gradeTitle">Roster</div>
+            <div class="panel-sub" style="margin-bottom:0;" id="gradeSub"></div>
+          </div>
+          <div class="toolbar" id="gradeCounts" style="margin-bottom:0;"></div>
+        </div>
+        <div class="legend">
+          <span><span class="badge badge-amber">Draft</span> saved, only you can see it, still editable</span>
+          <span><span class="badge badge-green">Published</span> visible to the student and locked</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Student</th><th>Grade</th><th>Points</th><th>Status</th><th style="text-align:right;">Actions</th></tr></thead>
+            <tbody id="gradeRows"><tr><td colspan="5" class="loading">Loading…</td></tr></tbody>
+          </table>
+        </div>
+        <div class="alert alert-error" id="gradeError" role="alert" hidden></div>
+      </div>
+    </div>
+
+    <!-- ========== ATTENDANCE ========== -->
+    <div class="view" id="view-attendance">
+      <div class="page-heading">
+        <svg viewBox="0 0 24 24" fill="none"><circle cx="9" cy="8" r="4" stroke="currentColor" stroke-width="1.8"/><path d="M2 21c0-3.9 3.1-7 7-7 1.5 0 2.9.5 4 1.3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M15 18l2 2 4-4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <h1>Attendance</h1>
+      </div>
+
+      <div class="panel">
+        <div class="picker-grid">
+          <div><label for="attCourse">Course</label><select id="attCourse"></select></div>
+          <div><label for="attSemester">Semester</label><select id="attSemester"></select></div>
+          <div><label for="attSession">Class session</label><select id="attSession"></select></div>
+          <div class="picker-action"><button class="btn btn-outline" id="newSessionBtn" type="button" aria-expanded="false" aria-controls="newSessionForm">+ New session</button></div>
+        </div>
+
+        <form class="inline-form" id="newSessionForm" hidden novalidate>
+          <div class="form-grid">
+            <div><label for="nsDate">Date</label><input type="date" id="nsDate" required></div>
+            <div><label for="nsStart">Start time</label><input type="time" id="nsStart" required></div>
+            <div><label for="nsEnd">End time</label><input type="time" id="nsEnd" required></div>
+            <div class="picker-action">
+              <button class="btn btn-primary" type="submit" id="nsSubmit">Create session</button>
+              <button class="btn btn-outline" type="button" id="nsCancel">Cancel</button>
+            </div>
+          </div>
+          <div class="alert alert-error" id="nsError" role="alert" hidden></div>
+        </form>
+        <div class="alert alert-success" id="nsSuccess" role="status" hidden></div>
+      </div>
+
+      <div class="panel">
+        <div class="roster-head">
+          <div>
+            <div class="panel-title" id="attTitle">Roster</div>
+            <div class="panel-sub" style="margin-bottom:0;" id="attSub"></div>
+          </div>
+          <div id="attStateBadge"></div>
+        </div>
+
+        <div class="toolbar" id="attToolbar"></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>Student</th><th>Attendance</th></tr></thead>
+            <tbody id="attRows"><tr><td colspan="3" class="loading">Loading…</td></tr></tbody>
+          </table>
+        </div>
+
+        <div class="alert alert-success" id="attSuccess" role="status" hidden></div>
+        <div class="alert alert-error" id="attError" role="alert" hidden></div>
+        <div class="submit-bar" id="attSubmitBar">
+          <span class="muted" id="attSubmitHint"></span>
+          <button class="btn btn-primary" id="attSubmit" type="button" disabled>Submit attendance</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   CONFIG
+   The Academic Service is called directly until the gateway is ready.
+   When it is, change this one line (e.g. to 'http://localhost:3000').
+   ============================================================ */
+const GATEWAY_URL = 'http://localhost:4002';
+
+/* ============================================================
+   FAKE DATA + FAKE API — delete this whole block when switching to the
+   real backend, and un-comment the real apiCall() at the bottom of this file.
+
+   Every screen talks to the backend ONLY through apiCall(method, path, body),
+   which resolves to { status, data } exactly like the real one will. The fake
+   version below applies the same rules and error messages as the Academic
+   Service (see docs/api-contracts/academic-service.md), so the UI already handles
+   real status codes (201/200/400/404/409).
+
+   Routes marked "⚠ NO ENDPOINT YET" do not exist in the backend. They're the
+   endpoints this page needs; the shapes here are the proposed contracts.
+   ============================================================ */
+
+const FAKE_LATENCY_MS = 250;
+
+const FAKE = {
+  // ⚠ No auth/instructor model yet — who is logged in will come from the Auth service.
+  instructor: { id: 9, name: 'Dr. Emmanuel Ndifor' },
+
+  // ⚠ NO ENDPOINT YET for listing semesters.
+  semesters: [
+    { id: 3, name: 'Spring 2026', start_date: '2026-01-12', end_date: '2026-05-22' },
+    { id: 4, name: 'Fall 2026',   start_date: '2026-09-01', end_date: '2026-12-20' },
+    { id: 5, name: 'Spring 2027', start_date: '2027-01-15', end_date: '2027-05-20' },
+  ],
+
+  // Course shape matches GET /api/v1/courses.
+  courses: [
+    { id: 7,  program_id: 1, code: 'CS301', title: 'Database Systems',     description: null, credit_hours: 4 },
+    { id: 12, program_id: 1, code: 'CS340', title: 'Software Engineering', description: null, credit_hours: 3 },
+  ],
+
+  // ⚠ Courses have no instructor field yet, so "which course/semester do I teach" is fake.
+  offerings: [
+    { course_id: 7,  semester_id: 4 },
+    { course_id: 12, semester_id: 4 },
+    { course_id: 7,  semester_id: 3 },
+  ],
+
+  // Matric numbers use the backend's current placeholder format (STU + 6 digits).
+  students: [
+    [101, 'Amara', 'Ngu'], [102, 'Brice', 'Tchoumi'], [103, 'Chantal', 'Mbah'], [104, 'Daniel', 'Fon'],
+    [105, 'Esther', 'Njoya'], [106, 'Fabrice', 'Kamga'], [107, 'Grace', 'Ebai'], [108, 'Hervé', 'Nkeng'],
+    [109, 'Inès', 'Tabi'], [110, 'Joël', 'Atangana'], [111, 'Kelly', 'Mengue'], [112, 'Lionel', 'Foka'],
+    [113, 'Mireille', 'Eko'], [114, 'Nadine', 'Ayuk'],
+  ].map(([id, first_name, last_name]) => ({
+    id, first_name, last_name,
+    matric_number: 'STU' + String(id).padStart(6, '0'),
+    email: `${first_name}.${last_name}`.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '') + '@myuni.edu',
+  })),
+
+  enrollments: [],   // built below from the rosters
+  sessions: [],      // ClassSession shape
+  attendance: [],    // attendance_records rows
+  grades: [],        // Grade shape
+  appeals: [],       // stored appeal rows (the API view adds names/codes)
+  nextId: { session: 900, attendance: 5000, grade: 700, appeal: 30 },
+};
+
+(function buildFakeData() {
+  const rosters = {
+    '7:4':  [101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112],
+    '12:4': [101, 103, 105, 107, 109, 111, 113, 114],
+    '7:3':  [102, 103, 104, 105, 106, 107, 108, 109],
+  };
+  for (const [key, ids] of Object.entries(rosters)) {
+    const [course_id, semester_id] = key.split(':').map(Number);
+    ids.forEach(student_id => FAKE.enrollments.push({ student_id, course_id, semester_id, status: 'enrolled' }));
+  }
+
+  // CS301 meets Mon + Wed 08:00–10:00, CS340 Wed 14:00–16:00 (same as the student timetable).
+  const addSession = (course_id, session_date, start_time, end_time) =>
+    FAKE.sessions.push({ id: FAKE.nextId.session++, course_id, semester_id: 4, session_date, start_time, end_time, created_at: session_date + 'T07:00:00.000Z' });
+  ['2026-09-07','2026-09-09','2026-09-14','2026-09-16','2026-09-21','2026-09-23','2026-09-28','2026-09-30']
+    .forEach(d => addSession(7, d, '08:00:00', '10:00:00'));
+  ['2026-09-02','2026-09-09','2026-09-16','2026-09-23','2026-09-30']
+    .forEach(d => addSession(12, d, '14:00:00', '16:00:00'));
+
+  // Attendance already taken for sessions up to 23 Sept. Deterministic, mostly present;
+  // Hervé (108) misses a lot, which is what the at-risk flag is for.
+  FAKE.sessions.filter(s => s.session_date <= '2026-09-23').forEach(s => {
+    FAKE.enrollments.filter(e => e.course_id === s.course_id && e.semester_id === s.semester_id).forEach(e => {
+      const h = (e.student_id * 7 + s.id * 13) % 20;
+      const status = e.student_id === 108 ? (h < 12 ? 'absent' : 'present') : h === 0 ? 'absent' : h === 1 ? 'late' : 'present';
+      FAKE.attendance.push({ id: FAKE.nextId.attendance++, session_id: s.id, student_id: e.student_id, status, recorded_at: s.session_date + 'T10:05:00.000Z' });
+    });
+  });
+
+  const addGrade = (student_id, course_id, semester_id, grade_letter, grade_points, published) =>
+    FAKE.grades.push({
+      id: FAKE.nextId.grade++, student_id, course_id, semester_id, grade_letter, grade_points, published,
+      published_at: published ? '2026-06-12T09:30:00.000Z' : null, created_at: '2026-06-10T15:00:00.000Z',
+    });
+  // Spring 2026 CS301: all published (final grades).
+  [[102,'A',4],[103,'C',2],[104,'D',1],[105,'B',3],[106,'B',3],[107,'A',4],[108,'F',0],[109,'C',2]]
+    .forEach(([sid, l, p]) => addGrade(sid, 7, 3, l, p, true));
+  // Fall 2026 CS301: a few drafts entered so far.
+  [[101,'A',4],[102,'B',3],[104,'C',2]].forEach(([sid, l, p]) => addGrade(sid, 7, 4, l, p, false));
+
+  const gradeOf = (sid) => FAKE.grades.find(g => g.student_id === sid && g.course_id === 7 && g.semester_id === 3);
+  const addAppeal = (sid, status, reason, instructor_response, created_at, resolved_at = null) => {
+    const g = gradeOf(sid);
+    FAKE.appeals.push({ id: FAKE.nextId.appeal++, grade_id: g.id, student_id: sid, reason, status, instructor_response,
+      original_grade_letter: g.grade_letter, original_grade_points: g.grade_points, created_at, resolved_at });
+  };
+  addAppeal(105, 'resolved_rejected', 'I think my lab report marks were entered for the wrong week.',
+    'Checked with the lab assistant: the marks were recorded against the correct week. The grade stands.', '2026-06-15T08:00:00.000Z', '2026-06-22T11:00:00.000Z');
+  addAppeal(103, 'under_review', 'Question 3 on the final (normalising the schema to 3NF) was marked 0/15, but my answer matches the model solution posted afterwards.',
+    'Pulling your script from the archive to re-check question 3.', '2026-06-16T10:20:00.000Z');
+  addAppeal(104, 'pending', 'My group project mark (worth 30%) does not seem to be included in the final grade.',
+    null, '2026-06-18T14:45:00.000Z');
+})();
+
+// ---------- fake API router ----------
+function fakeApi(method, path, body) {
+  const url = new URL(path, 'http://fake.local');
+  const p = url.pathname, q = url.searchParams;
+  const reply = (status, data) => new Promise(resolve =>
+    setTimeout(() => resolve({ status, data: data === undefined ? null : JSON.parse(JSON.stringify(data)) }), FAKE_LATENCY_MS));
+  const err = (status, error, extra = {}) => reply(status, { error, ...extra });
+  const nowIso = () => new Date().toISOString().replace(/\.\d{3}Z$/, '.000Z');
+  const posInt = (v) => { const n = Number(v); return Number.isInteger(n) && n > 0 ? n : null; };
+  const missingOf = (b, fields) => fields.filter(f => b?.[f] === undefined || b?.[f] === null || b?.[f] === '');
+  const toTime = (v) => { const m = /^([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?$/.exec(v || ''); return m ? `${m[1]}:${m[2]}:${m[3] ?? '00'}` : null; };
+  const isDate = (v) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && new Date(v + 'T00:00:00Z').toISOString().slice(0, 10) === v;
+  const course = (id) => FAKE.courses.find(c => c.id === id);
+  const semester = (id) => FAKE.semesters.find(s => s.id === id);
+  const student = (id) => FAKE.students.find(s => s.id === id);
+  const isEnrolled = (sid, cid, semId) => FAKE.enrollments.some(e => e.student_id === sid && e.course_id === cid && e.semester_id === semId && e.status === 'enrolled');
+  const register = (sessionId) => FAKE.attendance.filter(a => a.session_id === sessionId).map(a => {
+    const s = student(a.student_id);
+    return { id: a.id, student_id: a.student_id, first_name: s.first_name, last_name: s.last_name, status: a.status, recorded_at: a.recorded_at };
+  }).sort((a, b) => a.last_name.localeCompare(b.last_name));
+  const appealView = (a) => {
+    const g = FAKE.grades.find(x => x.id === a.grade_id), s = student(a.student_id), c = course(g.course_id), sem = semester(g.semester_id);
+    return { id: a.id, grade_id: a.grade_id, student_id: a.student_id, first_name: s.first_name, last_name: s.last_name,
+      course_id: c.id, course_code: c.code, course_title: c.title, semester_id: sem.id, semester_name: sem.name,
+      original_grade_letter: a.original_grade_letter, original_grade_points: a.original_grade_points,
+      current_grade_letter: g.grade_letter, current_grade_points: g.grade_points,
+      reason: a.reason, status: a.status, instructor_response: a.instructor_response, created_at: a.created_at, resolved_at: a.resolved_at };
+  };
+  const LETTERS = ['A', 'B', 'C', 'D', 'F'];
+  const validPoints = (v) => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 4 && Math.round(v * 100) === v * 100;
+  let m;
+
+  // ⚠ NO ENDPOINT YET — proposed: GET /api/v1/instructors/me/offerings
+  if (method === 'GET' && p === '/api/v1/instructors/me/offerings') {
+    return reply(200, FAKE.offerings.map(o => {
+      const c = course(o.course_id), s = semester(o.semester_id);
+      return { course_id: c.id, course_code: c.code, course_title: c.title, credit_hours: c.credit_hours,
+        semester_id: s.id, semester_name: s.name, semester_start: s.start_date, semester_end: s.end_date,
+        enrolled_count: FAKE.enrollments.filter(e => e.course_id === c.id && e.semester_id === s.id && e.status === 'enrolled').length };
+    }));
+  }
+
+  // ⚠ NO ENDPOINT YET — proposed: GET /api/v1/courses/:courseId/roster?semesterId=
+  if (method === 'GET' && (m = p.match(/^\/api\/v1\/courses\/(\d+)\/roster$/))) {
+    const cid = Number(m[1]), semId = posInt(q.get('semesterId'));
+    if (!semId) return err(400, 'semesterId must be a positive integer');
+    return reply(200, FAKE.enrollments.filter(e => e.course_id === cid && e.semester_id === semId && e.status === 'enrolled')
+      .map(e => { const s = student(e.student_id); return { student_id: s.id, first_name: s.first_name, last_name: s.last_name, matric_number: s.matric_number, email: s.email }; })
+      .sort((a, b) => a.last_name.localeCompare(b.last_name)));
+  }
+
+  // ⚠ NO ENDPOINT YET — proposed: GET /api/v1/sessions?courseId=&semesterId= (adds attendance_count)
+  if (method === 'GET' && p === '/api/v1/sessions') {
+    const cid = posInt(q.get('courseId')), semId = posInt(q.get('semesterId'));
+    return reply(200, FAKE.sessions.filter(s => s.course_id === cid && s.semester_id === semId)
+      .map(s => ({ ...s, attendance_count: FAKE.attendance.filter(a => a.session_id === s.id).length }))
+      .sort((a, b) => (a.session_date + a.start_time).localeCompare(b.session_date + b.start_time)));
+  }
+
+  // POST /api/v1/sessions — exists. Same checks and messages as attendanceController.createSession.
+  if (method === 'POST' && p === '/api/v1/sessions') {
+    const missing = missingOf(body, ['courseId', 'semesterId', 'sessionDate', 'startTime', 'endTime']);
+    if (missing.length) return err(400, `Missing required field(s): ${missing.join(', ')}`);
+    const cid = posInt(body.courseId), semId = posInt(body.semesterId);
+    if (!cid) return err(400, 'courseId must be a positive integer');
+    if (!semId) return err(400, 'semesterId must be a positive integer');
+    if (!isDate(body.sessionDate)) return err(400, 'sessionDate must be a valid date in YYYY-MM-DD format');
+    const st = toTime(body.startTime), et = toTime(body.endTime);
+    if (!st || !et) return err(400, 'startTime and endTime must be 24-hour times like "09:00" or "09:00:00"');
+    if (et <= st) return err(400, 'endTime must be after startTime');
+    if (!course(cid)) return err(400, `courseId ${cid} does not exist`);
+    const sem = semester(semId);
+    if (!sem) return err(400, `semesterId ${semId} does not exist`);
+    if (body.sessionDate < sem.start_date || body.sessionDate > sem.end_date)
+      return err(400, `sessionDate ${body.sessionDate} is outside ${sem.name} (${sem.start_date} to ${sem.end_date})`);
+    if (FAKE.sessions.some(s => s.course_id === cid && s.semester_id === semId && s.session_date === body.sessionDate && s.start_time === st))
+      return err(409, `A session for course ${cid} on ${body.sessionDate} at ${st} already exists in this semester`);
+    const s = { id: FAKE.nextId.session++, course_id: cid, semester_id: semId, session_date: body.sessionDate, start_time: st, end_time: et, created_at: nowIso() };
+    FAKE.sessions.push(s);
+    return reply(201, s);
+  }
+
+  // GET /api/v1/attendance/session/:sessionId — exists.
+  if (method === 'GET' && (m = p.match(/^\/api\/v1\/attendance\/session\/(\d+)$/))) {
+    const s = FAKE.sessions.find(x => x.id === Number(m[1]));
+    if (!s) return err(404, `Session ${m[1]} not found`);
+    return reply(200, { session: s, records: register(s.id) });
+  }
+
+  // POST /api/v1/attendance — exists. Same checks and messages as attendanceController.recordAttendance.
+  if (method === 'POST' && p === '/api/v1/attendance') {
+    const missing = missingOf(body, ['sessionId', 'records']);
+    if (missing.length) return err(400, `Missing required field(s): ${missing.join(', ')}`);
+    const sessionId = posInt(body.sessionId);
+    if (!sessionId) return err(400, 'sessionId must be a positive integer');
+    if (!Array.isArray(body.records) || !body.records.length) return err(400, 'records must be a non-empty array of { studentId, status }');
+    for (const [i, r] of body.records.entries()) {
+      if (!posInt(r?.studentId)) return err(400, `records[${i}].studentId must be a positive integer`);
+      if (!['present', 'absent', 'late'].includes(r.status)) return err(400, `records[${i}].status must be one of: present, absent, late`);
+    }
+    const ids = body.records.map(r => Number(r.studentId));
+    const repeated = [...new Set(ids.filter((id, i) => ids.indexOf(id) !== i))];
+    if (repeated.length) return err(400, `studentId(s) listed more than once: ${repeated.join(', ')}`);
+    const s = FAKE.sessions.find(x => x.id === sessionId);
+    if (!s) return err(400, `sessionId ${sessionId} does not exist`);
+    const notEnrolled = ids.filter(id => !isEnrolled(id, s.course_id, s.semester_id));
+    if (notEnrolled.length) return err(400, `studentId(s) not enrolled in this session's course and semester: ${notEnrolled.join(', ')}`);
+    const already = FAKE.attendance.filter(a => a.session_id === sessionId && ids.includes(a.student_id)).map(a => a.student_id);
+    if (already.length) return err(409, `Attendance already recorded for studentId(s) ${already.join(', ')} in session ${sessionId}; nothing was saved`);
+    const at = nowIso();
+    body.records.forEach(r => FAKE.attendance.push({ id: FAKE.nextId.attendance++, session_id: sessionId, student_id: Number(r.studentId), status: r.status, recorded_at: at }));
+    return reply(201, { session: s, records: register(sessionId) });
+  }
+
+  // ⚠ NO ENDPOINT YET — proposed: GET /api/v1/grades?courseId=&semesterId=
+  // (Possible today, but slow: GET /api/v1/students/:id/grades once per roster student.)
+  if (method === 'GET' && p === '/api/v1/grades') {
+    const cid = posInt(q.get('courseId')), semId = posInt(q.get('semesterId'));
+    return reply(200, FAKE.grades.filter(g => g.course_id === cid && g.semester_id === semId));
+  }
+
+  // POST /api/v1/grades — exists. Records or corrects a DRAFT; refuses published grades (409).
+  if (method === 'POST' && p === '/api/v1/grades') {
+    const missing = missingOf(body, ['studentId', 'courseId', 'semesterId', 'gradeLetter', 'gradePoints']);
+    if (missing.length) return err(400, `Missing required field(s): ${missing.join(', ')}`);
+    const sid = posInt(body.studentId), cid = posInt(body.courseId), semId = posInt(body.semesterId);
+    const letter = typeof body.gradeLetter === 'string' ? body.gradeLetter.trim().toUpperCase() : null;
+    if (!LETTERS.includes(letter)) return err(400, `gradeLetter must be one of: ${LETTERS.join(', ')}`);
+    if (!validPoints(body.gradePoints)) return err(400, 'gradePoints must be a number from 0 to 4 with at most 2 decimal places');
+    if (!isEnrolled(sid, cid, semId)) return err(400, `Student ${sid} is not enrolled in course ${cid} for semester ${semId}`);
+    const existing = FAKE.grades.find(g => g.student_id === sid && g.course_id === cid && g.semester_id === semId);
+    if (existing?.published) return err(409, `Grade ${existing.id} for this student, course and semester is already published and can't be changed`);
+    if (existing) { existing.grade_letter = letter; existing.grade_points = body.gradePoints; return reply(200, existing); }
+    const g = { id: FAKE.nextId.grade++, student_id: sid, course_id: cid, semester_id: semId, grade_letter: letter,
+      grade_points: body.gradePoints, published: false, published_at: null, created_at: nowIso() };
+    FAKE.grades.push(g);
+    return reply(201, g);
+  }
+
+  // PUT /api/v1/grades/:id/publish — exists. Idempotent.
+  if (method === 'PUT' && (m = p.match(/^\/api\/v1\/grades\/(\d+)\/publish$/))) {
+    const g = FAKE.grades.find(x => x.id === Number(m[1]));
+    if (!g) return err(404, `Grade ${m[1]} not found`);
+    if (!g.published) { g.published = true; g.published_at = nowIso(); }
+    return reply(200, g);
+  }
+
+  // GET /api/v1/appeals?status= — exists.
+  if (method === 'GET' && p === '/api/v1/appeals') {
+    const status = q.get('status');
+    return reply(200, FAKE.appeals.filter(a => !status || a.status === status).map(appealView));
+  }
+
+  // PUT /api/v1/appeals/:id/status — exists. Same transitions and messages as appealController.
+  if (method === 'PUT' && (m = p.match(/^\/api\/v1\/appeals\/(\d+)\/status$/))) {
+    const STATUSES = ['pending', 'under_review', 'resolved_approved', 'resolved_rejected'];
+    const NEXT = { pending: ['under_review'], under_review: ['resolved_approved', 'resolved_rejected'], resolved_approved: [], resolved_rejected: [] };
+    if (!STATUSES.includes(body?.status)) return err(400, `status must be one of: ${STATUSES.join(', ')}`);
+    const response = typeof body.instructorResponse === 'string' ? body.instructorResponse.trim() || null : null;
+    const hasL = body.newGradeLetter != null, hasP = body.newGradePoints != null;
+    if (hasL !== hasP) return err(400, 'newGradeLetter and newGradePoints must be provided together');
+    if (hasL && body.status !== 'resolved_approved') return err(400, 'newGradeLetter/newGradePoints are only allowed when status is resolved_approved');
+    const newLetter = hasL ? String(body.newGradeLetter).trim().toUpperCase() : null;
+    if (hasL && !LETTERS.includes(newLetter)) return err(400, `newGradeLetter must be one of: ${LETTERS.join(', ')}`);
+    if (hasP && !validPoints(body.newGradePoints)) return err(400, 'newGradePoints must be a number from 0 to 4 with at most 2 decimal places');
+    const a = FAKE.appeals.find(x => x.id === Number(m[1]));
+    if (!a) return err(404, `Appeal ${m[1]} not found`, { code: 'APPEAL_NOT_FOUND' });
+    if (!NEXT[a.status].includes(body.status)) {
+      const next = NEXT[a.status].length ? `allowed next: ${NEXT[a.status].join(', ')}` : 'it is already resolved';
+      return err(400, `Cannot move appeal ${a.id} from ${a.status} to ${body.status} (${next})`, { code: 'INVALID_TRANSITION' });
+    }
+    const resolving = body.status.startsWith('resolved_');
+    if (resolving && !response) return err(400, `instructorResponse is required to move an appeal to ${body.status}`, { code: 'RESPONSE_REQUIRED' });
+    a.status = body.status;
+    if (response) a.instructor_response = response;
+    if (resolving) a.resolved_at = nowIso();
+    if (hasL) {
+      const g = FAKE.grades.find(x => x.id === a.grade_id);
+      g.grade_letter = newLetter; g.grade_points = body.newGradePoints; g.published_at = nowIso();
+    }
+    return reply(200, appealView(a));
+  }
+
+  return err(404, `Fake API has no route for ${method} ${p}`);
+}
+
+// The one swap point: every screen below calls apiCall(). See the bottom of the file.
+const apiCall = fakeApi;
+/* ===================== END FAKE DATA + FAKE API ===================== */
+
+
+/* ============================================================
+   HELPERS
+   ============================================================ */
+
+const $ = (id) => document.getElementById(id);
+
+// Escape anything that came from the API before putting it into innerHTML
+// (names, reasons and responses are typed by people).
+function esc(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
+
+function initials(name) { return name.replace(/^(Dr|Prof|Mr|Mrs|Ms)\.?\s+/i, '').split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase(); }
+
+// "2026-09-28" -> "Mon 28 Sept 2026". Built from local parts so the date never shifts by a day.
+function fmtDate(iso) {
+  const [y, mo, d] = iso.split('-').map(Number);
+  return new Date(y, mo - 1, d).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+}
+const fmtTime = (t) => String(t).slice(0, 5); // "08:00:00" -> "08:00"
+function todayIso() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+
+// Same course colours as the student portal: its courses keep their tiles, others get a stable pick.
+const PORTAL_BANNERS = { CS301: 'b1', CS310: 'b2', CS220: 'b3', CS340: 'b4' };
+function bannerFor(code) {
+  if (PORTAL_BANNERS[code]) return PORTAL_BANNERS[code];
+  let h = 0; for (const ch of code) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return 'b' + ((h % 5) + 1);
+}
+
+// Default points for a letter on a 4.00 scale. Instructors can still type a different value.
+const LETTER_POINTS = { A: 4, B: 3, C: 2, D: 1, F: 0 };
+
+// Same rule as the backend: 0–4 with at most 2 decimals.
+function parsePoints(raw) {
+  if (raw === '' || raw === null || raw === undefined) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 && n <= 4 && Math.round(n * 100) === n * 100 ? n : null;
+}
+
+function show(el, html) { el.innerHTML = html; el.hidden = false; }
+function hide(el) { el.hidden = true; el.innerHTML = ''; }
+
+// Wraps apiCall so a network failure becomes a readable message instead of an unhandled error.
+async function request(method, path, body) {
+  try {
+    return await apiCall(method, path, body);
+  } catch (e) {
+    return { status: 0, data: { error: `Couldn't reach the Academic Service at ${GATEWAY_URL}. Is it running?` } };
+  }
+}
+const errorText = (res) => res.data?.error || `Request failed (HTTP ${res.status})`;
+
+const LOCK_ICON = '<svg viewBox="0 0 24 24" fill="none"><rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" stroke-width="2"/><path d="M8 11V8a4 4 0 118 0v3" stroke="currentColor" stroke-width="2"/></svg>';
+
+/* ============================================================
+   SHARED STATE
+   ============================================================ */
+
+const state = {
+  offerings: [],                       // what this instructor teaches
+  grading: { key: null, roster: [], grades: new Map(), appeals: [], edits: new Map(), openAppeal: null, confirmTimers: new Map() },
+  att: { sessions: [], roster: [], sessionId: null, marks: new Map(), record: null },
+};
+
+const currentSemesterId = () => {
+  const t = todayIso();
+  const current = state.offerings.find(o => o.semester_start <= t && t <= o.semester_end);
+  return current ? current.semester_id : state.offerings[0]?.semester_id;
+};
+
+// Fills a course <select> and a semester <select> from the offerings, keeping them in step:
+// the semester list only shows semesters in which the chosen course is actually taught.
+function fillCourseSelect(select) {
+  const courses = [...new Map(state.offerings.map(o => [o.course_id, o])).values()];
+  select.innerHTML = courses.map(o => `<option value="${o.course_id}">${esc(o.course_code)} — ${esc(o.course_title)}</option>`).join('');
+}
+function fillSemesterSelect(select, courseId, preferredSemesterId) {
+  const sems = state.offerings.filter(o => o.course_id === courseId).sort((a, b) => b.semester_start.localeCompare(a.semester_start));
+  select.innerHTML = sems.map(o => `<option value="${o.semester_id}">${esc(o.semester_name)}</option>`).join('');
+  if (sems.some(o => o.semester_id === preferredSemesterId)) select.value = String(preferredSemesterId);
+}
+const offeringFor = (courseId, semesterId) => state.offerings.find(o => o.course_id === courseId && o.semester_id === semesterId);
+
+/* ============================================================
+   GRADING
+   ============================================================ */
+
+async function loadGrading() {
+  const courseId = Number($('gradeCourse').value), semesterId = Number($('gradeSemester').value);
+  const off = offeringFor(courseId, semesterId);
+  const g = state.grading;
+  g.key = `${courseId}:${semesterId}`;
+  g.edits.clear(); g.openAppeal = null;
+  hide($('gradeError'));
+  $('gradeTitle').textContent = off ? `${off.course_code} — ${off.course_title}` : 'Roster';
+  $('gradeSub').textContent = off ? `${off.semester_name} · ${off.credit_hours} credits` : '';
+  $('gradeRows').innerHTML = '<tr><td colspan="5" class="loading">Loading roster and grades…</td></tr>';
+
+  const key = g.key;
+  const [rosterRes, gradesRes, appealsRes] = await Promise.all([
+    request('GET', `/api/v1/courses/${courseId}/roster?semesterId=${semesterId}`),
+    request('GET', `/api/v1/grades?courseId=${courseId}&semesterId=${semesterId}`),
+    request('GET', '/api/v1/appeals'),
+  ]);
+  if (key !== g.key) return; // the instructor switched course while this was loading
+  const failed = [rosterRes, gradesRes, appealsRes].find(r => r.status !== 200);
+  if (failed) {
+    $('gradeRows').innerHTML = '';
+    show($('gradeError'), esc(errorText(failed)));
+    return;
+  }
+  g.roster = rosterRes.data;
+  g.grades = new Map(gradesRes.data.map(x => [x.student_id, x]));
+  g.appeals = appealsRes.data.filter(a => a.course_id === courseId && a.semester_id === semesterId);
+  renderGrading();
+}
+
+// The most relevant appeal for a grade: an open one if there is one, otherwise the latest resolved.
+function appealForGrade(gradeId) {
+  const list = state.grading.appeals.filter(a => a.grade_id === gradeId).sort((a, b) => b.created_at.localeCompare(a.created_at));
+  return list.find(a => a.status === 'pending' || a.status === 'under_review') || list[0] || null;
+}
+
+function appealBadge(a) {
+  if (!a) return '';
+  return {
+    pending: '<span class="badge badge-amber">Appeal pending</span>',
+    under_review: '<span class="badge badge-blue">Appeal under review</span>',
+    resolved_approved: '<span class="badge badge-green">Appeal approved</span>',
+    resolved_rejected: '<span class="badge badge-red">Appeal rejected</span>',
+  }[a.status];
+}
+
+function renderGradeCounts() {
+  const g = state.grading;
+  let published = 0, drafts = 0;
+  g.roster.forEach(s => { const x = g.grades.get(s.student_id); if (x?.published) published++; else if (x) drafts++; });
+  const ungraded = g.roster.length - published - drafts;
+  const open = g.appeals.filter(a => a.status === 'pending' || a.status === 'under_review').length;
+  $('gradeCounts').innerHTML =
+    `<span class="count-chip">${g.roster.length} students</span>` +
+    `<span class="count-chip present">${published} published</span>` +
+    `<span class="count-chip late">${drafts} draft</span>` +
+    `<span class="count-chip">${ungraded} not graded</span>` +
+    (open ? `<span class="count-chip late">${open} open appeal${open === 1 ? '' : 's'}</span>` : '');
+}
+
+function renderGrading() {
+  const g = state.grading;
+  renderGradeCounts();
+  if (!g.roster.length) {
+    $('gradeRows').innerHTML = '<tr><td colspan="5"><div class="empty-state">No students are enrolled in this course for this semester.</div></td></tr>';
+    return;
+  }
+  $('gradeRows').innerHTML = g.roster.map(s => gradeRowHtml(s)).join('');
+}
+
+function gradeRowHtml(s) {
+  const g = state.grading, sid = s.student_id;
+  const grade = g.grades.get(sid);
+  const appeal = grade ? appealForGrade(grade.id) : null;
+  const edit = g.edits.get(sid);
+  const letter = edit?.letter ?? grade?.grade_letter ?? '';
+  const points = edit?.points ?? (grade ? String(grade.grade_points) : '');
+  const name = `${s.first_name} ${s.last_name}`;
+  const studentCell = `<td><div class="student-cell"><span class="student-name">${esc(name)}</span><span class="student-matric">${esc(s.matric_number)}</span></div></td>`;
+
+  const status = statusHtml(grade, appeal, edit);
+
+  let main;
+  if (grade?.published) {
+    // Read-only, like the backend: POST /grades on a published grade returns 409.
+    const isOpen = appeal && (appeal.status === 'pending' || appeal.status === 'under_review');
+    const action = isOpen
+      ? `<button class="btn btn-outline btn-sm" type="button" onclick="toggleAppeal(${appeal.id})" aria-expanded="${g.openAppeal === appeal.id}">Review appeal</button>`
+      : `<span class="lock-note">${LOCK_ICON} Locked</span>`;
+    main = `<td class="grade-cell-locked">${esc(grade.grade_letter)}</td><td>${Number(grade.grade_points).toFixed(2)}</td>
+      <td><div class="status-cell">${status}</div></td><td><div class="row-actions">${action}</div></td>`;
+  } else {
+    const opts = ['<option value="">—</option>', ...Object.keys(LETTER_POINTS).map(l => `<option ${l === letter ? 'selected' : ''}>${l}</option>`)].join('');
+    main = `<td><select class="grade-select" aria-label="Grade letter for ${esc(name)}" onchange="onLetterChange(${sid}, this.value)">${opts}</select></td>
+      <td><input class="points-input" type="number" min="0" max="4" step="0.01" inputmode="decimal" value="${esc(points)}" aria-label="Grade points for ${esc(name)}" oninput="onPointsInput(${sid}, this.value)"></td>
+      <td><div class="status-cell">${status}</div></td>
+      <td><div class="row-actions">
+        <button class="btn btn-outline btn-sm" type="button" onclick="saveDraft(${sid})" ${letter ? '' : 'disabled'}>Save Draft</button>
+        <button class="btn btn-primary btn-sm" type="button" id="pub-${sid}" onclick="publishGrade(${sid})" ${letter ? '' : 'disabled'}>Publish</button>
+      </div></td>`;
+  }
+
+  const detail = appeal && g.openAppeal === appeal.id ? appealPanelHtml(appeal, grade) : '';
+  return `<tr id="grow-${sid}">${studentCell}${main}</tr>
+    <tr class="detail-row" id="gdetail-${sid}" ${detail ? '' : 'hidden'}><td colspan="5">${detail}<div class="alert" id="gmsg-${sid}" hidden></div></td></tr>`;
+}
+
+function statusHtml(grade, appeal, edit) {
+  let html = grade
+    ? (grade.published ? '<span class="badge badge-green">Published</span>' : '<span class="badge badge-amber">Draft</span>')
+    : '<span class="muted" style="font-size:.8rem;">Not graded</span>';
+  html += appealBadge(appeal);
+  if (edit) html += '<span class="unsaved">● unsaved</span>';
+  return html;
+}
+
+// Updates an editable row after the instructor changes a letter or points, WITHOUT re-rendering
+// it, so keyboard focus stays where it is (Chrome fires `change` on every arrow key in a select).
+function updateGradeRowInPlace(sid) {
+  const row = $('grow-' + sid);
+  if (!row) return;
+  const g = state.grading, grade = g.grades.get(sid), edit = g.edits.get(sid);
+  const letter = edit?.letter ?? grade?.grade_letter ?? '';
+  const points = edit?.points ?? (grade ? String(grade.grade_points) : '');
+  const pointsInput = row.querySelector('.points-input');
+  if (pointsInput && document.activeElement !== pointsInput && pointsInput.value !== points) pointsInput.value = points;
+  row.querySelectorAll('.row-actions button').forEach(b => { if (!b.classList.contains('confirming')) b.disabled = !letter; });
+  row.querySelector('.status-cell').innerHTML = statusHtml(grade, grade ? appealForGrade(grade.id) : null, edit);
+}
+
+function rerenderGradeRow(sid) {
+  const s = state.grading.roster.find(r => r.student_id === sid);
+  const row = $('grow-' + sid), detail = $('gdetail-' + sid);
+  const tmp = document.createElement('tbody');
+  tmp.innerHTML = gradeRowHtml(s);
+  row.replaceWith(tmp.children[0]);
+  detail.replaceWith(tmp.children[0]);
+  renderGradeCounts();
+}
+
+// Row message under a student (success or error). Success messages fade after a few seconds.
+function rowMessage(sid, kind, html) {
+  const detail = $('gdetail-' + sid), box = $('gmsg-' + sid);
+  if (!detail || !box) return;
+  box.className = 'alert alert-' + kind;
+  box.setAttribute('role', kind === 'error' ? 'alert' : 'status');
+  show(box, html);
+  detail.hidden = false;
+  if (kind === 'success') setTimeout(() => {
+    if (!box.isConnected) return;
+    hide(box);
+    if (!detail.querySelector('.appeal-box')) detail.hidden = true;
+  }, 4000);
+}
+
+function onLetterChange(sid, letter) {
+  const g = state.grading, grade = g.grades.get(sid);
+  const prev = g.edits.get(sid);
+  const prevLetter = prev?.letter ?? grade?.grade_letter ?? '';
+  const prevPoints = prev?.points ?? (grade ? String(grade.grade_points) : '');
+  // Auto-fill points only if they still match the old letter's default (i.e. weren't customised).
+  const untouched = prevPoints === '' || (prevLetter && Number(prevPoints) === LETTER_POINTS[prevLetter]);
+  const points = letter && untouched ? String(LETTER_POINTS[letter]) : prevPoints;
+  setEdit(sid, letter, points);
+}
+function onPointsInput(sid, value) {
+  const g = state.grading, grade = g.grades.get(sid), prev = g.edits.get(sid);
+  setEdit(sid, prev?.letter ?? grade?.grade_letter ?? '', value);
+}
+// Records an unsaved edit (or clears it if the values match what's saved), then refreshes the row.
+function setEdit(sid, letter, points) {
+  const g = state.grading, grade = g.grades.get(sid);
+  const same = grade && letter === grade.grade_letter && points !== '' && Number(points) === Number(grade.grade_points);
+  if (same || (!grade && !letter && points === '')) g.edits.delete(sid); else g.edits.set(sid, { letter, points });
+  updateGradeRowInPlace(sid);
+}
+
+// Validates the row's current values. Returns { letter, points } or null after showing why.
+function currentGradeInput(sid) {
+  const g = state.grading, grade = g.grades.get(sid), edit = g.edits.get(sid);
+  const letter = edit?.letter ?? grade?.grade_letter ?? '';
+  const points = parsePoints(edit?.points ?? (grade ? grade.grade_points : ''));
+  if (!letter) { rowMessage(sid, 'error', 'Choose a grade letter first.'); return null; }
+  if (points === null) { rowMessage(sid, 'error', 'Points must be a number from 0 to 4 with at most 2 decimals.'); return null; }
+  return { letter, points };
+}
+
+// POST /api/v1/grades — creates or corrects a draft.
+async function saveGradeDraft(sid, input) {
+  const [courseId, semesterId] = state.grading.key.split(':').map(Number);
+  return request('POST', '/api/v1/grades', { studentId: sid, courseId, semesterId, gradeLetter: input.letter, gradePoints: input.points });
+}
+
+async function saveDraft(sid) {
+  const input = currentGradeInput(sid);
+  if (!input) return;
+  const res = await saveGradeDraft(sid, input);
+  if (res.status === 200 || res.status === 201) {
+    state.grading.grades.set(sid, res.data);
+    state.grading.edits.delete(sid);
+    rerenderGradeRow(sid);
+    rowMessage(sid, 'success', `Draft saved: <b>${esc(res.data.grade_letter)}</b> (${Number(res.data.grade_points).toFixed(2)}). Only you can see it until you publish.`);
+  } else {
+    if (res.status === 409) await refreshGrade(sid);
+    rowMessage(sid, 'error', esc(errorText(res)));
+  }
+}
+
+// Publishing is irreversible, so it takes two clicks: the first arms the button for 5 seconds.
+async function publishGrade(sid) {
+  const g = state.grading, btn = $('pub-' + sid);
+  const needsSave = !g.grades.get(sid) || g.edits.has(sid);
+  if (!btn.classList.contains('confirming')) {
+    if (needsSave && !currentGradeInput(sid)) return; // shows why, before asking to confirm
+    btn.classList.add('confirming');
+    btn.textContent = 'Confirm publish';
+    rowMessage(sid, 'warn', 'Publishing makes the grade visible to the student and locks it. Click <b>Confirm publish</b> to continue.');
+    clearTimeout(g.confirmTimers.get(sid));
+    g.confirmTimers.set(sid, setTimeout(() => {
+      if (!btn.isConnected) return;
+      btn.classList.remove('confirming'); btn.textContent = 'Publish';
+      const box = $('gmsg-' + sid); if (box) { hide(box); $('gdetail-' + sid).hidden = true; }
+    }, 5000));
+    return;
+  }
+  clearTimeout(g.confirmTimers.get(sid));
+  btn.disabled = true; btn.textContent = 'Publishing…';
+
+  // Unsaved changes (or no draft yet) are saved first, then published.
+  let grade = g.grades.get(sid);
+  if (needsSave) {
+    const input = currentGradeInput(sid);
+    if (!input) { btn.classList.remove('confirming'); btn.disabled = false; btn.textContent = 'Publish'; return; }
+    const saved = await saveGradeDraft(sid, input);
+    if (saved.status !== 200 && saved.status !== 201) {
+      if (saved.status === 409) await refreshGrade(sid);
+      rerenderGradeRow(sid);
+      return rowMessage(sid, 'error', esc(errorText(saved)));
+    }
+    grade = saved.data;
+    g.grades.set(sid, grade);
+    g.edits.delete(sid);
+  }
+
+  const res = await request('PUT', `/api/v1/grades/${grade.id}/publish`);
+  if (res.status === 200) {
+    g.grades.set(sid, res.data);
+    rerenderGradeRow(sid);
+    rowMessage(sid, 'success', `Published <b>${esc(res.data.grade_letter)}</b>. The student can now see this grade.`);
+  } else {
+    rerenderGradeRow(sid);
+    rowMessage(sid, 'error', esc(errorText(res)));
+  }
+}
+
+// Re-reads one student's grade (after a 409, someone else changed it).
+async function refreshGrade(sid) {
+  const [courseId, semesterId] = state.grading.key.split(':').map(Number);
+  const res = await request('GET', `/api/v1/grades?courseId=${courseId}&semesterId=${semesterId}`);
+  if (res.status === 200) {
+    const fresh = res.data.find(x => x.student_id === sid);
+    if (fresh) state.grading.grades.set(sid, fresh);
+    state.grading.edits.delete(sid);
+  }
+}
+
+/* ---------- appeals (the one way to change a published grade) ---------- */
+
+function toggleAppeal(appealId) {
+  const g = state.grading;
+  const prev = g.openAppeal;
+  g.openAppeal = prev === appealId ? null : appealId;
+  const sidOf = (id) => g.appeals.find(a => a.id === id)?.student_id;
+  if (prev && sidOf(prev)) rerenderGradeRow(sidOf(prev));
+  if (g.openAppeal && sidOf(g.openAppeal)) rerenderGradeRow(sidOf(g.openAppeal));
+}
+
+function appealPanelHtml(a, grade) {
+  const filed = fmtDate(a.created_at.slice(0, 10));
+  const head = `<div class="appeal-meta">Appeal #${a.id} · filed ${esc(filed)} · original grade ${esc(a.original_grade_letter)} (${Number(a.original_grade_points).toFixed(2)})</div>
+    <div class="appeal-quote">${esc(a.reason)}</div>
+    ${a.instructor_response ? `<div class="appeal-meta" style="margin-bottom:8px;">Your last note: “${esc(a.instructor_response)}”</div>` : ''}`;
+  const lockNote = `<div class="alert alert-info" style="margin-top:0;"><b>Why this published grade can be changed here:</b> published grades are locked, and the API refuses to edit them.
+    The one exception is an approved appeal. Approving with a new grade updates and re-publishes it in a single step, and the student is notified.</div>`;
+
+  if (a.status === 'pending') {
+    return `<div class="appeal-box">${head}${lockNote}
+      <div class="appeal-meta" style="margin:10px 0 8px;">An appeal has to be under review before it can be approved or rejected.</div>
+      <label for="ap-note-${a.id}">Note to the student (optional)</label>
+      <textarea id="ap-note-${a.id}" placeholder="e.g. I'm re-checking your script this week."></textarea>
+      <div style="margin-top:8px;"><button class="btn btn-primary btn-sm" type="button" onclick="startReview(${a.id})">Start review</button></div>
+    </div>`;
+  }
+  // under_review
+  const opts = Object.keys(LETTER_POINTS).map(l => `<option ${l === grade.grade_letter ? 'selected' : ''}>${l}</option>`).join('');
+  return `<div class="appeal-box">${head}${lockNote}
+    <div class="decision-row" role="radiogroup" aria-label="Decision">
+      <label><input type="radio" name="ap-dec-${a.id}" value="resolved_approved" onchange="onDecision(${a.id})"> Approve</label>
+      <label><input type="radio" name="ap-dec-${a.id}" value="resolved_rejected" onchange="onDecision(${a.id})"> Reject</label>
+    </div>
+    <div class="regrade-fields" id="ap-regrade-${a.id}" hidden>
+      <div><label for="ap-letter-${a.id}">New grade</label>
+        <select class="grade-select" id="ap-letter-${a.id}" onchange="$('ap-points-${a.id}').value = LETTER_POINTS[this.value]">${opts}</select></div>
+      <div><label for="ap-points-${a.id}">Points</label>
+        <input class="points-input" id="ap-points-${a.id}" type="number" min="0" max="4" step="0.01" value="${Number(grade.grade_points)}"></div>
+      <div class="appeal-meta" style="padding-bottom:9px;">Currently ${esc(grade.grade_letter)} (${Number(grade.grade_points).toFixed(2)})</div>
+    </div>
+    <label for="ap-resp-${a.id}" style="margin-top:10px;">Response to the student (required)</label>
+    <textarea id="ap-resp-${a.id}" placeholder="Explain the decision…"></textarea>
+    <div style="margin-top:8px;"><button class="btn btn-primary btn-sm" type="button" onclick="resolveAppeal(${a.id})">Submit decision</button></div>
+  </div>`;
+}
+
+function onDecision(appealId) {
+  const approve = document.querySelector(`input[name="ap-dec-${appealId}"]:checked`)?.value === 'resolved_approved';
+  $('ap-regrade-' + appealId).hidden = !approve;
+}
+
+async function startReview(appealId) {
+  const a = state.grading.appeals.find(x => x.id === appealId);
+  const note = $('ap-note-' + appealId).value.trim();
+  const res = await request('PUT', `/api/v1/appeals/${appealId}/status`, { status: 'under_review', ...(note ? { instructorResponse: note } : {}) });
+  if (res.status === 200) {
+    Object.assign(a, res.data);
+    rerenderGradeRow(a.student_id);
+    rowMessage(a.student_id, 'success', 'Appeal moved to <b>under review</b>. You can now approve or reject it.');
+  } else {
+    rowMessage(a.student_id, 'error', esc(errorText(res)));
+  }
+}
+
+async function resolveAppeal(appealId) {
+  const g = state.grading, a = g.appeals.find(x => x.id === appealId);
+  const decision = document.querySelector(`input[name="ap-dec-${appealId}"]:checked`)?.value;
+  const response = $('ap-resp-' + appealId).value.trim();
+  if (!decision) return rowMessage(a.student_id, 'error', 'Choose Approve or Reject.');
+  if (!response) return rowMessage(a.student_id, 'error', 'Write a response to the student; it is required to resolve an appeal.');
+
+  const body = { status: decision, instructorResponse: response };
+  const grade = g.grades.get(a.student_id);
+  if (decision === 'resolved_approved') {
+    const letter = $('ap-letter-' + appealId).value, points = parsePoints($('ap-points-' + appealId).value);
+    if (points === null) return rowMessage(a.student_id, 'error', 'Points must be a number from 0 to 4 with at most 2 decimals.');
+    // Only send a regrade if something actually changes; approving without one is also valid.
+    if (letter !== grade.grade_letter || points !== Number(grade.grade_points)) Object.assign(body, { newGradeLetter: letter, newGradePoints: points });
+  }
+
+  const res = await request('PUT', `/api/v1/appeals/${appealId}/status`, body);
+  if (res.status !== 200) return rowMessage(a.student_id, 'error', esc(errorText(res)));
+
+  Object.assign(a, res.data);
+  g.openAppeal = null;
+  if (body.newGradeLetter) await refreshGrade(a.student_id); // the grade row changed and was re-published
+  rerenderGradeRow(a.student_id);
+  const msg = decision === 'resolved_rejected'
+    ? 'Appeal <b>rejected</b>. The grade is unchanged and the student can read your response.'
+    : body.newGradeLetter
+      ? `Appeal <b>approved</b>. Grade changed from ${esc(a.original_grade_letter)} to <b>${esc(res.data.current_grade_letter)}</b> and re-published.`
+      : 'Appeal <b>approved</b> with no grade change.';
+  rowMessage(a.student_id, 'success', msg);
+}
+
+/* ============================================================
+   ATTENDANCE
+   ============================================================ */
+
+async function loadAttendanceOffering(preferSessionId) {
+  const courseId = Number($('attCourse').value), semesterId = Number($('attSemester').value);
+  const off = offeringFor(courseId, semesterId);
+  const att = state.att;
+  att.key = `${courseId}:${semesterId}`;
+  $('nsDate').min = off?.semester_start || ''; $('nsDate').max = off?.semester_end || '';
+  $('attSession').innerHTML = '<option>Loading…</option>';
+  $('attRows').innerHTML = '<tr><td colspan="3" class="loading">Loading…</td></tr>';
+  hide($('attError')); hide($('attSuccess'));
+
+  const key = att.key;
+  const [sessionsRes, rosterRes] = await Promise.all([
+    request('GET', `/api/v1/sessions?courseId=${courseId}&semesterId=${semesterId}`),
+    request('GET', `/api/v1/courses/${courseId}/roster?semesterId=${semesterId}`),
+  ]);
+  if (key !== att.key) return;
+  const failed = [sessionsRes, rosterRes].find(r => r.status !== 200);
+  if (failed) { $('attRows').innerHTML = ''; return show($('attError'), esc(errorText(failed))); }
+
+  att.sessions = sessionsRes.data;
+  att.roster = rosterRes.data;
+  renderSessionOptions(preferSessionId ?? defaultSessionId());
+  await loadSessionAttendance();
+}
+
+// Default: the most recent session (today or earlier) that still needs attendance;
+// otherwise the most recent past session; otherwise the first one.
+function defaultSessionId() {
+  const t = todayIso(), s = state.att.sessions;
+  const past = s.filter(x => x.session_date <= t);
+  const untaken = past.filter(x => !x.attendance_count);
+  return (untaken.at(-1) || past.at(-1) || s[0])?.id ?? null;
+}
+
+function renderSessionOptions(selectedId) {
+  const s = state.att.sessions;
+  if (!s.length) {
+    $('attSession').innerHTML = '<option value="">No sessions yet — create one</option>';
+    state.att.sessionId = null;
+    return;
+  }
+  $('attSession').innerHTML = s.map(x =>
+    `<option value="${x.id}">${esc(fmtDate(x.session_date))} · ${fmtTime(x.start_time)}–${fmtTime(x.end_time)}${x.attendance_count ? ' · ✓ taken' : ''}</option>`).join('');
+  $('attSession').value = String(selectedId ?? s[0].id);
+  state.att.sessionId = Number($('attSession').value);
+}
+
+async function loadSessionAttendance() {
+  const att = state.att;
+  att.marks.clear(); att.record = null;
+  hide($('attError'));
+  const off = offeringFor(...att.key.split(':').map(Number));
+  $('attTitle').textContent = off ? `${off.course_code} — ${off.course_title}` : 'Roster';
+
+  if (!att.sessionId) {
+    $('attSub').textContent = off ? off.semester_name : '';
+    $('attStateBadge').innerHTML = '';
+    $('attToolbar').innerHTML = '';
+    $('attRows').innerHTML = '<tr><td colspan="3"><div class="empty-state">No class sessions in this semester yet. Use <b>+ New session</b> to create one.</div></td></tr>';
+    return renderSubmitBar();
+  }
+  const session = att.sessions.find(x => x.id === att.sessionId);
+  $('attSub').textContent = `${off?.semester_name ?? ''} · ${fmtDate(session.session_date)} · ${fmtTime(session.start_time)}–${fmtTime(session.end_time)}`;
+
+  const sessionId = att.sessionId;
+  const res = await request('GET', `/api/v1/attendance/session/${sessionId}`);
+  if (sessionId !== att.sessionId) return;
+  if (res.status !== 200) return show($('attError'), esc(errorText(res)));
+  att.record = res.data.records.length ? res.data.records : null;
+  renderAttendance();
+}
+
+function renderAttendance() {
+  const att = state.att;
+  if (!att.roster.length) {
+    $('attStateBadge').innerHTML = '';
+    $('attToolbar').innerHTML = '';
+    $('attRows').innerHTML = '<tr><td colspan="3"><div class="empty-state">No students are enrolled in this course for this semester.</div></td></tr>';
+    return renderSubmitBar();
+  }
+
+  if (att.record) {
+    // Already submitted: read-only. The API refuses to mark the same student twice (409).
+    const byStudent = new Map(att.record.map(r => [r.student_id, r]));
+    const recordedAt = att.record[0]?.recorded_at;
+    $('attStateBadge').innerHTML = '<span class="badge badge-green">Submitted</span>';
+    const counts = { present: 0, absent: 0, late: 0 };
+    att.record.forEach(r => counts[r.status]++);
+    $('attToolbar').innerHTML = countChips(counts, att.roster.length - att.record.length, 'not recorded') +
+      (recordedAt ? `<span class="muted" style="font-size:.78rem;">Recorded ${esc(new Date(recordedAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }))}. Submitted attendance can't be changed here.</span>` : '');
+    const badge = { present: 'badge-green', absent: 'badge-red', late: 'badge-amber' };
+    $('attRows').innerHTML = att.roster.map((s, i) => {
+      const r = byStudent.get(s.student_id);
+      const cell = r ? `<span class="badge ${badge[r.status]}">${r.status[0].toUpperCase() + r.status.slice(1)}</span>` : '<span class="muted" style="font-size:.8rem;">Not recorded</span>';
+      return `<tr><td class="row-num">${i + 1}</td><td>${studentCellHtml(s)}</td><td>${cell}</td></tr>`;
+    }).join('');
+    return renderSubmitBar();
+  }
+
+  $('attStateBadge').innerHTML = '<span class="badge badge-amber">Not taken yet</span>';
+  $('attRows').innerHTML = att.roster.map((s, i) => {
+    const name = `${s.first_name} ${s.last_name}`, sid = s.student_id, cur = att.marks.get(sid);
+    const opt = (value, label) => `<input type="radio" id="m-${sid}-${value}" name="mark-${sid}" value="${value}" ${cur === value ? 'checked' : ''} onchange="setMark(${sid}, '${value}')"><label for="m-${sid}-${value}" class="${value}">${label}</label>`;
+    return `<tr><td class="row-num">${i + 1}</td><td>${studentCellHtml(s)}</td>
+      <td><div class="seg" role="radiogroup" aria-label="Attendance for ${esc(name)}">${opt('present', 'Present')}${opt('absent', 'Absent')}${opt('late', 'Late')}</div></td></tr>`;
+  }).join('');
+  renderMarkToolbar();
+  renderSubmitBar();
+}
+
+function studentCellHtml(s) {
+  return `<div class="student-cell"><span class="student-name">${esc(s.first_name + ' ' + s.last_name)}</span><span class="student-matric">${esc(s.matric_number)}</span></div>`;
+}
+function countChips(counts, other, otherLabel) {
+  return `<span class="count-chip present">${counts.present} present</span><span class="count-chip absent">${counts.absent} absent</span>` +
+    `<span class="count-chip late">${counts.late} late</span>` + (other ? `<span class="count-chip">${other} ${otherLabel}</span>` : '');
+}
+
+function renderMarkToolbar() {
+  const att = state.att, counts = { present: 0, absent: 0, late: 0 };
+  att.marks.forEach(v => counts[v]++);
+  $('attToolbar').innerHTML = `<button class="btn btn-outline btn-sm" type="button" onclick="markAllPresent()">Mark all present</button>` +
+    countChips(counts, att.roster.length - att.marks.size, 'unmarked');
+}
+
+function setMark(sid, value) { state.att.marks.set(sid, value); renderMarkToolbar(); renderSubmitBar(); }
+function markAllPresent() { state.att.roster.forEach(s => state.att.marks.set(s.student_id, 'present')); renderAttendance(); }
+
+function renderSubmitBar() {
+  const att = state.att, btn = $('attSubmit'), hint = $('attSubmitHint');
+  const session = att.sessions.find(x => x.id === att.sessionId);
+  $('attSubmitBar').hidden = !!att.record || !att.sessionId || !att.roster.length;
+  const unmarked = att.roster.length - att.marks.size;
+  if (session && session.session_date > todayIso()) {
+    btn.disabled = true;
+    hint.textContent = `This session is on ${fmtDate(session.session_date)}. Attendance can be taken on or after that day.`;
+  } else if (unmarked > 0) {
+    // Everyone must be marked: the backend counts a student missing from a submitted register
+    // as not present, so a forgotten row would silently hurt their attendance percentage.
+    btn.disabled = true;
+    hint.textContent = `${unmarked} student${unmarked === 1 ? '' : 's'} still unmarked. Everyone must be marked before submitting.`;
+  } else {
+    btn.disabled = false;
+    hint.textContent = `All ${att.roster.length} students marked. Submitted attendance can't be edited afterwards.`;
+  }
+  btn.textContent = `Submit attendance (${att.roster.length})`;
+}
+
+async function submitAttendance() {
+  const att = state.att, btn = $('attSubmit');
+  hide($('attError')); hide($('attSuccess'));
+  btn.disabled = true; btn.textContent = 'Submitting…';
+  const records = att.roster.map(s => ({ studentId: s.student_id, status: att.marks.get(s.student_id) }));
+  const res = await request('POST', '/api/v1/attendance', { sessionId: att.sessionId, records });
+
+  if (res.status === 201) {
+    att.record = res.data.records;
+    const session = att.sessions.find(x => x.id === att.sessionId);
+    session.attendance_count = res.data.records.length;
+    renderSessionOptions(att.sessionId);
+    renderAttendance();
+    const c = { present: 0, absent: 0, late: 0 }; res.data.records.forEach(r => c[r.status]++);
+    show($('attSuccess'), `<b>Attendance saved</b> for ${res.data.records.length} students on ${esc(fmtDate(session.session_date))}: ${c.present} present, ${c.absent} absent, ${c.late} late.`);
+    return;
+  }
+  // 409 = someone already submitted this session; reload so the instructor sees what's recorded.
+  if (res.status === 409) {
+    await loadSessionAttendance();
+    show($('attError'), esc(errorText(res)) + ' The saved register is shown below.');
+    return;
+  }
+  show($('attError'), esc(errorText(res)));
+  renderSubmitBar();
+}
+
+async function createSession(event) {
+  event.preventDefault();
+  hide($('nsError')); hide($('nsSuccess'));
+  const date = $('nsDate').value, start = $('nsStart').value, end = $('nsEnd').value;
+  const off = offeringFor(Number($('attCourse').value), Number($('attSemester').value));
+  // Quick checks for a clear message; the API re-checks everything.
+  if (!date || !start || !end) return show($('nsError'), 'Date, start time and end time are all required.');
+  if (end <= start) return show($('nsError'), 'End time must be after start time.');
+  if (off && (date < off.semester_start || date > off.semester_end))
+    return show($('nsError'), `The date must fall within ${esc(off.semester_name)} (${esc(fmtDate(off.semester_start))} – ${esc(fmtDate(off.semester_end))}).`);
+
+  $('nsSubmit').disabled = true;
+  const res = await request('POST', '/api/v1/sessions', { courseId: off.course_id, semesterId: off.semester_id, sessionDate: date, startTime: start, endTime: end });
+  $('nsSubmit').disabled = false;
+  if (res.status !== 201) return show($('nsError'), esc(errorText(res)));
+
+  $('newSessionForm').reset();
+  toggleNewSession(false);
+  show($('nsSuccess'), `<b>Session created</b> for ${esc(fmtDate(res.data.session_date))}, ${fmtTime(res.data.start_time)}–${fmtTime(res.data.end_time)}. It's selected below.`);
+  setTimeout(() => hide($('nsSuccess')), 5000);
+  await loadAttendanceOffering(res.data.id);
+}
+
+function toggleNewSession(open) {
+  const form = $('newSessionForm');
+  form.hidden = !open;
+  $('newSessionBtn').setAttribute('aria-expanded', String(open));
+  if (open) { hide($('nsError')); $('nsDate').focus(); }
+}
+
+/* ============================================================
+   DASHBOARD + MY COURSES
+   ============================================================ */
+
+async function renderDashboardAndCourses() {
+  const semId = currentSemesterId();
+  const current = state.offerings.filter(o => o.semester_id === semId);
+  const semName = current[0]?.semester_name ?? '';
+  $('dashCoursesTitle').textContent = `My Courses — ${semName}`;
+
+  // One grades + sessions call per offering, and one appeals call overall.
+  const [appealsRes, ...perOffering] = await Promise.all([
+    request('GET', '/api/v1/appeals'),
+    ...state.offerings.map(o => Promise.all([
+      request('GET', `/api/v1/grades?courseId=${o.course_id}&semesterId=${o.semester_id}`),
+      request('GET', `/api/v1/sessions?courseId=${o.course_id}&semesterId=${o.semester_id}`),
+    ])),
+  ]);
+  const stats = state.offerings.map((o, i) => {
+    const [gRes, sRes] = perOffering[i];
+    const grades = gRes.status === 200 ? gRes.data : [], sessions = sRes.status === 200 ? sRes.data : [];
+    return { ...o,
+      published: grades.filter(g => g.published).length, drafts: grades.filter(g => !g.published).length,
+      awaiting: sessions.filter(s => s.session_date <= todayIso() && !s.attendance_count).length };
+  });
+  const myCourseIds = new Set(state.offerings.map(o => o.course_id));
+  const openAppeals = (appealsRes.status === 200 ? appealsRes.data : [])
+    .filter(a => myCourseIds.has(a.course_id) && (a.status === 'pending' || a.status === 'under_review'));
+  const cur = stats.filter(s => s.semester_id === semId);
+  const firstAppeal = openAppeals[0];
+
+  $('dashStats').innerHTML = `
+    <div class="stat-card brand-fill"><div class="stat-label">STUDENTS THIS SEMESTER</div>
+      <div class="stat-number">${cur.reduce((n, s) => n + s.enrolled_count, 0)}</div><div class="stat-note">across ${cur.length} course${cur.length === 1 ? '' : 's'}</div></div>
+    <button class="stat-card plain" type="button" onclick="showView('grading')"><div class="stat-label">DRAFT GRADES TO PUBLISH</div>
+      <div class="stat-number">${cur.reduce((n, s) => n + s.drafts, 0)}</div><div class="stat-note">${esc(semName)}</div></button>
+    <button class="stat-card plain" type="button" ${firstAppeal ? `onclick="openGrading(${firstAppeal.course_id}, ${firstAppeal.semester_id})"` : 'disabled'}><div class="stat-label">OPEN GRADE APPEALS</div>
+      <div class="stat-number">${openAppeals.length}</div><div class="stat-note">${firstAppeal ? `oldest: ${esc(firstAppeal.course_code)}, ${esc(firstAppeal.semester_name)}` : 'none waiting'}</div></button>
+    <button class="stat-card plain" type="button" onclick="showView('attendance')"><div class="stat-label">SESSIONS AWAITING ATTENDANCE</div>
+      <div class="stat-number">${cur.reduce((n, s) => n + s.awaiting, 0)}</div><div class="stat-note">up to today</div></button>`;
+
+  $('dashCourseGrid').innerHTML = cur.map(s => {
+    const gradedPct = s.enrolled_count ? Math.round((s.published / s.enrolled_count) * 100) : 0;
+    return `<div class="course-card">
+      <div class="course-banner ${bannerFor(s.course_code)}">
+        <div class="progress-pill">${s.enrolled_count} students</div>
+        <div class="progress-strip"><div class="progress-strip-fill" style="width:${gradedPct}%"></div></div>
+      </div>
+      <div class="course-card-body">
+        <div class="course-card-tag">${esc(s.semester_name)}</div>
+        <div class="course-card-title">${esc(s.course_code)} — ${esc(s.course_title)}</div>
+        <div class="course-card-meta">${s.credit_hours} credits · ${s.published}/${s.enrolled_count} grades published${s.awaiting ? ` · ${s.awaiting} register${s.awaiting === 1 ? '' : 's'} to take` : ''}</div>
+        <div class="course-card-actions">
+          <button class="btn btn-outline btn-sm" type="button" onclick="openAttendance(${s.course_id}, ${s.semester_id})">Attendance</button>
+          <button class="btn btn-primary btn-sm" type="button" onclick="openGrading(${s.course_id}, ${s.semester_id})">Grading</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('') || '<div class="empty-state">No courses this semester.</div>';
+
+  $('offeringRows').innerHTML = stats.sort((a, b) => b.semester_start.localeCompare(a.semester_start) || a.course_code.localeCompare(b.course_code)).map(s => `
+    <tr>
+      <td><div style="display:flex; align-items:center; gap:10px;"><span class="course-banner ${bannerFor(s.course_code)}" style="height:28px; width:6px; padding:0; border-radius:4px;"></span>
+        <div><b>${esc(s.course_code)}</b> — ${esc(s.course_title)}</div></div></td>
+      <td>${esc(s.semester_name)}${s.semester_id === semId ? ' <span class="badge badge-blue">Current</span>' : ''}</td>
+      <td>${s.enrolled_count}</td>
+      <td>${s.published === s.enrolled_count && s.enrolled_count ? '<span class="badge badge-green">All published</span>' : `${s.published} / ${s.enrolled_count}${s.drafts ? ` <span class="badge badge-amber">${s.drafts} draft</span>` : ''}`}</td>
+      <td style="text-align:right;"><button class="btn btn-outline btn-sm" type="button" onclick="openGrading(${s.course_id}, ${s.semester_id})">Open grading</button></td>
+    </tr>`).join('');
+}
+
+function openGrading(courseId, semesterId) {
+  $('gradeCourse').value = String(courseId);
+  fillSemesterSelect($('gradeSemester'), courseId, semesterId);
+  showView('grading');
+  loadGrading();
+}
+function openAttendance(courseId, semesterId) {
+  $('attCourse').value = String(courseId);
+  fillSemesterSelect($('attSemester'), courseId, semesterId);
+  showView('attendance');
+  loadAttendanceOffering();
+}
+
+/* ============================================================
+   NAV — same behaviour as student-portal.html
+   ============================================================ */
+
+const titles = { dashboard: 'Dashboard', courses: 'My Courses', grading: 'Grading', attendance: 'Attendance' };
+
+function showView(name) {
+  if (!titles[name]) name = 'grading';
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  $('view-' + name).classList.add('active');
+  document.querySelectorAll('.nav-item[data-view]').forEach(n => n.classList.toggle('active', n.dataset.view === name));
+  $('breadcrumb').innerHTML = `<b>Home</b> &nbsp;›&nbsp; ${titles[name]}`;
+  if (location.hash !== '#' + name) history.replaceState(null, '', '#' + name);
+  // Recompute the summary views on every visit, so they reflect grades published and
+  // registers taken since the page loaded.
+  if ((name === 'dashboard' || name === 'courses') && state.offerings.length) renderDashboardAndCourses();
+}
+
+function toggleSidebar() {
+  $('sidebar').classList.toggle('collapsed');
+  try { localStorage.setItem('sidebarCollapsed', $('sidebar').classList.contains('collapsed')); } catch (e) { /* storage blocked */ }
+}
+try { if (localStorage.getItem('sidebarCollapsed') === 'true') $('sidebar').classList.add('collapsed'); } catch (e) { /* storage blocked */ }
+
+/* ============================================================
+   STARTUP
+   ============================================================ */
+
+(async function init() {
+  const name = FAKE_INSTRUCTOR_NAME();
+  $('topAvatar').textContent = initials(name);
+  $('topName').textContent = name;
+  showView(location.hash.slice(1) || 'grading');
+
+  const res = await request('GET', '/api/v1/instructors/me/offerings');
+  if (res.status !== 200) {
+    show($('gradeError'), esc(errorText(res)));
+    return;
+  }
+  state.offerings = res.data;
+  const semId = currentSemesterId();
+
+  for (const [courseSel, semSel] of [[$('gradeCourse'), $('gradeSemester')], [$('attCourse'), $('attSemester')]]) {
+    fillCourseSelect(courseSel);
+    const firstCurrent = state.offerings.find(o => o.semester_id === semId);
+    if (firstCurrent) courseSel.value = String(firstCurrent.course_id);
+    fillSemesterSelect(semSel, Number(courseSel.value), semId);
+  }
+
+  $('gradeCourse').addEventListener('change', () => { fillSemesterSelect($('gradeSemester'), Number($('gradeCourse').value), semId); loadGrading(); });
+  $('gradeSemester').addEventListener('change', loadGrading);
+  $('attCourse').addEventListener('change', () => { fillSemesterSelect($('attSemester'), Number($('attCourse').value), semId); toggleNewSession(false); loadAttendanceOffering(); });
+  $('attSemester').addEventListener('change', () => { toggleNewSession(false); loadAttendanceOffering(); });
+  $('attSession').addEventListener('change', () => { state.att.sessionId = Number($('attSession').value) || null; hide($('attSuccess')); loadSessionAttendance(); });
+  $('attSubmit').addEventListener('click', submitAttendance);
+  $('newSessionBtn').addEventListener('click', () => toggleNewSession($('newSessionForm').hidden));
+  $('nsCancel').addEventListener('click', () => toggleNewSession(false));
+  $('newSessionForm').addEventListener('submit', createSession);
+
+  await Promise.all([loadGrading(), loadAttendanceOffering(), renderDashboardAndCourses()]);
+})();
+
+// ⚠ The logged-in user will come from the Auth service. Until then, the fake instructor's name.
+function FAKE_INSTRUCTOR_NAME() { return typeof FAKE !== 'undefined' ? FAKE.instructor.name : 'Instructor'; }
+
+/* ============================================================
+   REAL API — to switch from fake data:
+     1. Delete the "FAKE DATA + FAKE API" block near the top.
+     2. Un-comment this apiCall(). It returns { status, data } like the fake one,
+        so nothing else on the page changes.
+     3. Set GATEWAY_URL at the top if you're going through the gateway.
+
+   Endpoints this page uses:
+     exist today:  POST /api/v1/sessions
+                   GET  /api/v1/attendance/session/:sessionId
+                   POST /api/v1/attendance
+                   POST /api/v1/grades
+                   PUT  /api/v1/grades/:id/publish
+                   GET  /api/v1/appeals
+                   PUT  /api/v1/appeals/:id/status
+     ⚠ missing:    GET  /api/v1/instructors/me/offerings        (courses have no instructor yet)
+                   GET  /api/v1/courses/:courseId/roster?semesterId=
+                   GET  /api/v1/sessions?courseId=&semesterId=  (with attendance_count)
+                   GET  /api/v1/grades?courseId=&semesterId=
+
+   async function apiCall(method, path, body) {
+     const headers = {};
+     if (body !== undefined) headers['Content-Type'] = 'application/json';
+     // Once the Auth service is ready:
+     // const token = localStorage.getItem('token');
+     // if (token) headers['Authorization'] = 'Bearer ' + token;
+     const res = await fetch(GATEWAY_URL + path, {
+       method,
+       headers,
+       body: body === undefined ? undefined : JSON.stringify(body),
+     });
+     // 204 No Content has no body; error responses are JSON { error }.
+     const data = res.status === 204 ? null : await res.json().catch(() => null);
+     return { status: res.status, data };
+   }
+   ============================================================ */
+</script>
+</body>
+</html>
