@@ -1,0 +1,1291 @@
+openapi: 3.0.3
+
+info:
+  title: Academic Service API
+  version: 1.0.0
+  description: |
+    The Academic Service is one of the microservices of the school ERP system. It owns courses,
+    programs, enrollment, class sessions and attendance, grades and GPA, the at-risk-student flag,
+    exam scheduling, grade appeals and transcript export, and its own database (`academic_db`).
+    Other services (Auth, Finance, HR, Notifications) never read its tables; they get academic data
+    through this REST API (normally via the API gateway) or through the RabbitMQ events it publishes
+    (`academic.student.enrolled`, `academic.grade.published`, `academic.student.at_risk_flagged`).
+
+    This spec describes the service **as implemented**. The written contract is
+    `docs/api-contracts/academic-service.md`; the two must be updated together.
+
+    **Conventions**
+    - No authentication yet; it will be added once the Auth service and gateway headers are in place.
+    - Errors are JSON `{ "error": "message" }`. Some add fields: `code` (appeals),
+      `missingPrerequisites` (enrollment 409) and `conflicts` (exam 409).
+    - A request body that isn't valid JSON returns `400 { "error": "Request body is not valid JSON" }`.
+    - Ids in paths must be positive integers; anything else returns `400`.
+    - Dates are `YYYY-MM-DD`, times are 24-hour `HH:MM` or `HH:MM:SS` (returned as `HH:MM:SS`),
+      and timestamps are ISO-8601 UTC strings.
+
+servers:
+  - url: http://localhost:4002
+    description: Academic Service called directly (local development)
+
+tags:
+  - name: Health
+    description: Liveness and database connectivity check.
+  - name: Programs
+    description: Degree programs that group courses.
+  - name: Courses
+    description: Courses and their prerequisites.
+  - name: Enrollment
+    description: Enrolling students in courses, with prerequisite enforcement.
+  - name: Attendance
+    description: Class sessions, attendance registers and attendance percentages.
+  - name: Grades
+    description: Draft and published grades, and credit-weighted GPA.
+  - name: At-Risk
+    description: The at-risk-student flag (attendance below 75%, or two most recent published grades both F).
+  - name: Exams
+    description: Exam scheduling with room-conflict detection.
+  - name: Appeals
+    description: Grade appeals (pending -> under_review -> resolved_approved | resolved_rejected).
+  - name: Transcript
+    description: Transcript export as a PDF.
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Service health check
+      description: Runs `SELECT 1` against the database.
+      operationId: getHealth
+      responses:
+        '200':
+          description: Service and database are up.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+                  service: { type: string, example: academic-service }
+                  db: { type: string, example: connected }
+        '500':
+          description: The database is unreachable.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: error }
+                  message: { type: string }
+
+  # ---------------------------------------------------------------- Programs
+  /api/v1/programs:
+    post:
+      tags: [Programs]
+      summary: Create a program
+      operationId: createProgram
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProgramInput' }
+      responses:
+        '201':
+          description: Program created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Program' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409':
+          description: A program with this name already exists.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: 'A program named "BSc Computer Science" already exists' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    get:
+      tags: [Programs]
+      summary: List all programs
+      description: Ordered by id. Returns `[]` if there are none.
+      operationId: listPrograms
+      responses:
+        '200':
+          description: All programs.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Program' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  # ---------------------------------------------------------------- Courses
+  /api/v1/courses:
+    post:
+      tags: [Courses]
+      summary: Create a course (optionally with prerequisites)
+      description: |
+        The course and its prerequisite links are saved in one transaction: if linking fails, the
+        course isn't saved either. Duplicate ids in `prerequisite_ids` are ignored.
+      operationId: createCourse
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CourseInput' }
+      responses:
+        '201':
+          description: Course created, with its prerequisites resolved.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CourseWithPrerequisites' }
+        '400':
+          description: Missing or invalid field, `program_id` doesn't exist, or unknown prerequisite id(s).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                missing: { value: { error: 'Missing required field(s): code, credit_hours' } }
+                unknownPrerequisite: { value: { error: 'prerequisite course id(s) do not exist: 77' } }
+        '409':
+          description: A course with this `code` already exists.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: 'A course with code "CS101" already exists' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    get:
+      tags: [Courses]
+      summary: List all courses
+      description: Ordered by id. Prerequisites are not included; use GET `/api/v1/courses/{id}`.
+      operationId: listCourses
+      responses:
+        '200':
+          description: All courses.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Course' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /api/v1/courses/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    get:
+      tags: [Courses]
+      summary: Get one course with its resolved prerequisites
+      operationId: getCourse
+      responses:
+        '200':
+          description: The course.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CourseWithPrerequisites' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    put:
+      tags: [Courses]
+      summary: Replace a course
+      description: |
+        Full replace of the course fields (same body as POST). If `prerequisite_ids` is sent it
+        **replaces** the prerequisite list (`[]` clears it); if it's omitted, prerequisites are unchanged.
+      operationId: updateCourse
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CourseInput' }
+      responses:
+        '200':
+          description: The updated course.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CourseWithPrerequisites' }
+        '400':
+          description: Invalid input, unknown program/prerequisite, or the course listed as its own prerequisite.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: 'A course cannot be its own prerequisite' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Another course already uses this `code`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    delete:
+      tags: [Courses]
+      summary: Delete a course
+      description: Also removes this course's own prerequisite links.
+      operationId: deleteCourse
+      responses:
+        '204': { description: Deleted. No body. }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Another course still lists this one as a prerequisite.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: 'Course 3 is a prerequisite for other courses; remove it from their prerequisite lists first' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  # ---------------------------------------------------------------- Enrollment
+  /api/v1/enrollments:
+    post:
+      tags: [Enrollment]
+      summary: Enroll a student in a course for a semester
+      description: |
+        Checks that every prerequisite was taken (not dropped) in a semester that **ended before
+        this semester starts**. Grades aren't consulted yet: "enrolled" counts as "completed".
+        After saving, publishes `academic.student.enrolled` (with `tuitionAmount` from the
+        `TUITION_AMOUNT` setting). If RabbitMQ is down, the enrollment still succeeds and the
+        missed event is logged.
+      operationId: createEnrollment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EnrollmentInput' }
+      responses:
+        '201':
+          description: Enrolled.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Enrollment' }
+        '400':
+          description: Missing or invalid field, or the student, course or semester doesn't exist.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '409':
+          description: Prerequisites not met (with `missingPrerequisites`), or already enrolled in this course this semester.
+          content:
+            application/json:
+              schema:
+                # anyOf, not oneOf: a prerequisite-conflict body also satisfies the plain Error schema.
+                anyOf:
+                  - $ref: '#/components/schemas/PrerequisiteConflict'
+                  - $ref: '#/components/schemas/Error'
+              examples:
+                prerequisitesNotMet:
+                  value:
+                    error: 'Prerequisites not met for CS201. Missing: CS102 (Discrete Math)'
+                    missingPrerequisites: [{ id: 2, code: CS102, title: Discrete Math }]
+                alreadyEnrolled:
+                  value: { error: 'Student 1 is already enrolled in course 1 for semester 1' }
+        '500':
+          description: Server error, or `TUITION_AMOUNT` isn't configured (nothing is saved in that case).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /api/v1/students/{studentId}/enrollments:
+    parameters:
+      - $ref: '#/components/parameters/StudentIdPath'
+    get:
+      tags: [Enrollment]
+      summary: List a student's enrollments
+      description: Includes dropped enrollments. Ordered by semester start date, then course code. `[]` if none.
+      operationId: listStudentEnrollments
+      responses:
+        '200':
+          description: The student's enrollments.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/StudentEnrollment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  # ---------------------------------------------------------------- Attendance
+  /api/v1/sessions:
+    post:
+      tags: [Attendance]
+      summary: Create a class session
+      operationId: createSession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SessionInput' }
+      responses:
+        '201':
+          description: Session created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ClassSession' }
+        '400':
+          description: Missing or invalid field, `endTime` not after `startTime`, course/semester doesn't exist, or date outside the semester.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: 'sessionDate 2027-01-10 is outside Fall 2026 (2026-09-01 to 2026-12-20)' }
+        '409':
+          description: A session for this course, semester, date and start time already exists.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /api/v1/attendance:
+    post:
+      tags: [Attendance]
+      summary: Record attendance for a whole session
+      description: |
+        All-or-nothing: if any record fails, nothing is saved. Every student must be actively
+        enrolled in the session's course and semester. After saving, each listed student's at-risk
+        status is re-checked (which may publish `academic.student.at_risk_flagged`).
+      operationId: recordAttendance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AttendanceInput' }
+      responses:
+        '201':
+          description: Saved. Returns the session and its full register.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SessionAttendance' }
+        '400':
+          description: Invalid record (the error names its index), a student listed twice, session doesn't exist, or student(s) not enrolled.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                badRecord: { value: { error: 'records[1].status must be one of: present, absent, late' } }
+                notEnrolled: { value: { error: "studentId(s) not enrolled in this session's course and semester: 3, 99" } }
+        '409':
+          description: Some students are already marked for this session (named in the error). Nothing was saved.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: 'Attendance already recorded for studentId(s) 1 in session 1; nothing was saved' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /api/v1/attendance/session/{sessionId}:
+    parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema: { type: integer, minimum: 1 }
+    get:
+      tags: [Attendance]
+      summary: Get the attendance register for one session
+      description: Records are ordered by surname; `records` is `[]` if attendance hasn't been taken yet.
+      operationId: getSessionAttendance
+      responses:
+        '200':
+          description: The session and its register.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SessionAttendance' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /api/v1/students/{studentId}/attendance:
+    parameters:
+      - $ref: '#/components/parameters/StudentIdPath'
+    get:
+      tags: [Attendance]
+      summary: A student's attendance history and overall percentage
+      description: Records are newest first.
+      operationId: getStudentAttendance
+      responses:
+        '200':
+          description: Summary and records.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [studentId, summary, records]
+                properties:
+                  studentId: { type: integer }
+                  summary: { $ref: '#/components/schemas/AttendanceSummary' }
+                  records:
+                    type: array
+                    items: { $ref: '#/components/schemas/StudentAttendance' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  # ---------------------------------------------------------------- Grades
+  /api/v1/grades:
+    post:
+      tags: [Grades]
+      summary: Record or correct a draft grade
+      description: |
+        One grade per student, course and semester. The first POST creates a draft (`201`); posting
+        again corrects the draft (`200`). A **published** grade can't be changed this way (`409`);
+        the only way to change it is an approved grade appeal.
+      operationId: recordGrade
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GradeInput' }
+      responses:
+        '200':
+          description: Existing draft corrected.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Grade' }
+        '201':
+          description: New draft created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Grade' }
+        '400':
+          description: Missing or invalid field, student/course/semester doesn't exist, or the student isn't enrolled in that course that semester.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '409':
+          description: The grade is already published and can't be changed.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: "Grade 1 for this student, course and semester is already published and can't be changed" }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /api/v1/grades/{id}/publish:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    put:
+      tags: [Grades]
+      summary: Publish a grade
+      description: |
+        Sets `published: true` and `published_at`, publishes `academic.grade.published`, and
+        re-checks the student's at-risk status. Idempotent: publishing an already-published grade
+        returns `200` and does **not** send the event again.
+      operationId: publishGrade
+      responses:
+        '200':
+          description: The published grade.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Grade' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /api/v1/students/{studentId}/grades:
+    parameters:
+      - $ref: '#/components/parameters/StudentIdPath'
+    get:
+      tags: [Grades]
+      summary: A student's grades and cumulative GPA
+      description: |
+        `grades` includes drafts (see `published`). `gpa` and `totalCredits` count **published**
+        grades only: GPA = sum(grade_points x credit_hours) / sum(credit_hours), rounded to 2
+        decimals; F grades count. `gpa` is `null` until a grade is published.
+      operationId: getStudentGrades
+      responses:
+        '200':
+          description: Grades and GPA.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [studentId, gpa, totalCredits, grades]
+                properties:
+                  studentId: { type: integer }
+                  gpa: { type: number, nullable: true, example: 2.86 }
+                  totalCredits: { type: integer, example: 7 }
+                  grades:
+                    type: array
+                    items: { $ref: '#/components/schemas/StudentGrade' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  # ---------------------------------------------------------------- At-Risk
+  /api/v1/students/{studentId}/at-risk:
+    parameters:
+      - $ref: '#/components/parameters/StudentIdPath'
+    get:
+      tags: [At-Risk]
+      summary: A student's at-risk status, evaluated live
+      description: |
+        Evaluated live from current attendance and grades, so it's accurate even if an automatic
+        check was missed. `storedFlag` is the last state saved by the automatic checks (`null` if the
+        student has never been checked). Read-only: it doesn't update the stored flag or send events.
+
+        Rule: at risk if the attendance percentage is **below 75** (`attendance_below_75`), OR the two
+        most recent **published** grades are both F (`two_consecutive_fails`).
+      operationId: getStudentAtRisk
+      responses:
+        '200':
+          description: Live evaluation plus the stored flag.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AtRiskEvaluation' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /api/v1/at-risk-students:
+    get:
+      tags: [At-Risk]
+      summary: List students currently flagged at risk
+      description: Students whose **stored** flag is at risk, most recently flagged first. `[]` if none. For advisors.
+      operationId: listAtRiskStudents
+      responses:
+        '200':
+          description: Flagged students.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/AtRiskStudent' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  # ---------------------------------------------------------------- Exams
+  /api/v1/exams:
+    post:
+      tags: [Exams]
+      summary: Schedule an exam
+      description: |
+        Two exams conflict if they're in the same room (case-insensitive, surrounding spaces ignored),
+        on the same date, and their half-open time ranges overlap: `[s1, e1)` overlaps `[s2, e2)` when
+        `s1 < e2 AND s2 < e1`. Back-to-back exams do **not** conflict. Bookings for the same room are
+        serialised with a lock, so simultaneous requests can't double-book it.
+      operationId: createExam
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ExamInput' }
+      responses:
+        '201':
+          description: Exam scheduled.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Exam' }
+        '400':
+          description: Missing or invalid field, `endTime` not after `startTime`, course/semester doesn't exist, or date outside the semester.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '409':
+          description: Overlaps existing exam(s) in that room on that date. Nothing was saved.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ExamConflict' }
+        '500': { $ref: '#/components/responses/ServerError' }
+        '503': { $ref: '#/components/responses/RoomLockBusy' }
+    get:
+      tags: [Exams]
+      summary: List exams
+      description: Ordered by date, start time, room. Both filters are optional and can be combined.
+      operationId: listExams
+      parameters:
+        - name: semesterId
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1 }
+        - name: courseId
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1 }
+      responses:
+        '200':
+          description: Matching exams.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Exam' }
+        '400':
+          description: A filter is present but isn't a positive integer.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: 'courseId must be a positive integer' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /api/v1/exams/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    get:
+      tags: [Exams]
+      summary: Get one exam
+      operationId: getExam
+      responses:
+        '200':
+          description: The exam.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Exam' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    put:
+      tags: [Exams]
+      summary: Replace an exam
+      description: |
+        Full replace (same body as POST). Re-runs the conflict check against the new room, date and
+        times, **excluding this exam itself**. On `409` the exam is left unchanged.
+      operationId: updateExam
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ExamInput' }
+      responses:
+        '200':
+          description: The updated exam.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Exam' }
+        '400':
+          description: Invalid input (as POST).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: The new slot overlaps other exam(s) in that room. The exam was not changed.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ExamConflict' }
+        '500': { $ref: '#/components/responses/ServerError' }
+        '503': { $ref: '#/components/responses/RoomLockBusy' }
+    delete:
+      tags: [Exams]
+      summary: Delete an exam
+      description: Frees the room slot.
+      operationId: deleteExam
+      responses:
+        '204': { description: Deleted. No body. }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  # ---------------------------------------------------------------- Appeals
+  /api/v1/grades/{gradeId}/appeals:
+    parameters:
+      - name: gradeId
+        in: path
+        required: true
+        schema: { type: integer, minimum: 1 }
+    post:
+      tags: [Appeals]
+      summary: File an appeal against a published grade
+      description: |
+        Only a **published** grade can be appealed, and only by the student it belongs to. At most one
+        open appeal (`pending` or `under_review`) per grade, enforced by the database even under
+        concurrent requests. A grade can be appealed again once earlier appeals are resolved.
+      operationId: createAppeal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AppealInput' }
+      responses:
+        '201':
+          description: Appeal filed (status `pending`).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Appeal' }
+        '400':
+          description: Missing or invalid field, the grade isn't published yet (`GRADE_NOT_PUBLISHED`), or the grade belongs to another student (`STUDENT_MISMATCH`).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AppealError' }
+              example: { error: 'Grade 4 is not published yet; only published grades can be appealed', code: GRADE_NOT_PUBLISHED }
+        '404':
+          description: Grade not found (`GRADE_NOT_FOUND`).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AppealError' }
+        '409':
+          description: This grade already has an open appeal (`OPEN_APPEAL_EXISTS`).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AppealError' }
+              example: { error: 'Grade 1 already has an open appeal (appeal 1, status pending)', code: OPEN_APPEAL_EXISTS }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /api/v1/appeals:
+    get:
+      tags: [Appeals]
+      summary: List appeals
+      description: Oldest first (the order to work through them).
+      operationId: listAppeals
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/AppealStatus' }
+      responses:
+        '200':
+          description: Matching appeals.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Appeal' }
+        '400':
+          description: Unknown `status` value.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /api/v1/appeals/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    get:
+      tags: [Appeals]
+      summary: Get one appeal
+      operationId: getAppeal
+      responses:
+        '200':
+          description: The appeal.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Appeal' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /api/v1/appeals/{id}/status:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    put:
+      tags: [Appeals]
+      summary: Move an appeal to its next status (optionally regrading on approval)
+      description: |
+        Allowed transitions: `pending -> under_review -> resolved_approved | resolved_rejected`.
+        Resolved states are final. `instructorResponse` is **required** to resolve (and sets
+        `resolved_at`); it's optional for `under_review`.
+
+        `newGradeLetter` and `newGradePoints` must be sent together, and only with `resolved_approved`.
+        The grade is then changed and re-published **in the same transaction** as the approval (all or
+        nothing), after which `academic.grade.published` is sent and the student's at-risk status is
+        re-checked.
+      operationId: updateAppealStatus
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AppealStatusInput' }
+      responses:
+        '200':
+          description: The updated appeal (`current_grade_*` reflects any regrade).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Appeal' }
+        '400':
+          description: Invalid input, invalid transition (`INVALID_TRANSITION`), or missing response (`RESPONSE_REQUIRED`).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AppealError' }
+              examples:
+                invalidTransition:
+                  value: { error: 'Cannot move appeal 1 from pending to resolved_approved (allowed next: under_review)', code: INVALID_TRANSITION }
+                responseRequired:
+                  value: { error: 'instructorResponse is required to move an appeal to resolved_rejected', code: RESPONSE_REQUIRED }
+        '404':
+          description: Appeal not found (`APPEAL_NOT_FOUND`).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AppealError' }
+        '500':
+          description: Server error. If a regrade fails midway, everything is rolled back and the appeal stays `under_review`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  # ---------------------------------------------------------------- Transcript
+  /api/v1/students/{studentId}/transcript/pdf:
+    parameters:
+      - $ref: '#/components/parameters/StudentIdPath'
+    get:
+      tags: [Transcript]
+      summary: Download a student's transcript as a PDF
+      description: |
+        Streamed as a download. Contains name, matric number (currently a placeholder derived from
+        the student id, e.g. `STU000042`), one section per semester (code, title, credits, grade, points,
+        semester GPA) and the cumulative GPA. **Published grades only.**
+      operationId: downloadTranscript
+      responses:
+        '200':
+          description: The PDF.
+          headers:
+            Content-Disposition:
+              description: '`attachment; filename="transcript-<matricNumber>.pdf"`'
+              schema: { type: string, example: 'attachment; filename="transcript-STU000042.pdf"' }
+            Cache-Control:
+              schema: { type: string, example: no-store }
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+components:
+  parameters:
+    IdPath:
+      name: id
+      in: path
+      required: true
+      description: Positive integer id.
+      schema: { type: integer, minimum: 1 }
+    StudentIdPath:
+      name: studentId
+      in: path
+      required: true
+      schema: { type: integer, minimum: 1 }
+
+  responses:
+    BadRequest:
+      description: Invalid input (e.g. a missing field, or an id that isn't a positive integer), or a body that isn't valid JSON.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: 'id must be a positive integer' }
+    NotFound:
+      description: The resource doesn't exist.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: 'Course 999 not found' }
+    ServerError:
+      description: Unexpected server error.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    RoomLockBusy:
+      description: The room's booking lock was busy for more than 5 seconds. Temporary; retry.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: 'Timed out waiting for the booking lock on room "Hall A"; please retry' }
+
+  schemas:
+    # ---------- errors
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string, description: Human-readable message. }
+    AppealError:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string }
+        code:
+          type: string
+          description: Present when an appeal business rule was broken; absent for plain input-validation errors.
+          enum: [GRADE_NOT_FOUND, APPEAL_NOT_FOUND, STUDENT_MISMATCH, GRADE_NOT_PUBLISHED, INVALID_TRANSITION, RESPONSE_REQUIRED, OPEN_APPEAL_EXISTS]
+    PrerequisiteConflict:
+      type: object
+      required: [error, missingPrerequisites]
+      properties:
+        error: { type: string }
+        missingPrerequisites:
+          type: array
+          items:
+            type: object
+            required: [id, code, title]
+            properties:
+              id: { type: integer }
+              code: { type: string }
+              title: { type: string }
+    ExamConflict:
+      type: object
+      required: [error, conflicts]
+      properties:
+        error:
+          type: string
+          example: 'Room "Hall A" is already booked on 2026-12-10 at an overlapping time: CS101 09:00-11:00 (exam 1). The exam was not saved.'
+        conflicts:
+          type: array
+          description: Every existing exam the requested slot overlaps, ordered by start time.
+          items: { $ref: '#/components/schemas/Exam' }
+
+    # ---------- shared formats
+    Date:
+      type: string
+      format: date
+      example: '2026-12-10'
+    TimeInput:
+      type: string
+      pattern: '^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$'
+      description: 24-hour time, `HH:MM` or `HH:MM:SS`.
+      example: '09:00'
+    Time:
+      type: string
+      pattern: '^\d{2}:\d{2}:\d{2}$'
+      example: '09:00:00'
+    GradeLetter:
+      type: string
+      enum: [A, B, C, D, F]
+    GradePoints:
+      type: number
+      minimum: 0
+      maximum: 4
+      description: 0 to 4 with at most 2 decimal places. Must be a JSON number, not a string.
+      example: 3.7
+
+    # ---------- programs & courses
+    ProgramInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, description: Leading/trailing spaces are trimmed. }
+        description: { type: string, nullable: true }
+    Program:
+      type: object
+      required: [id, name, description, created_at]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        description: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
+    CourseInput:
+      type: object
+      required: [program_id, code, title, credit_hours]
+      properties:
+        program_id: { type: integer, minimum: 1 }
+        code: { type: string, minLength: 1, maxLength: 20 }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: string, nullable: true }
+        credit_hours: { type: integer, minimum: 1, maximum: 255 }
+        prerequisite_ids:
+          type: array
+          items: { type: integer, minimum: 1 }
+          description: Optional. On PUT, omit to keep the current prerequisites; `[]` clears them.
+    Course:
+      type: object
+      required: [id, program_id, code, title, description, credit_hours, created_at]
+      properties:
+        id: { type: integer }
+        program_id: { type: integer }
+        code: { type: string, example: CS201 }
+        title: { type: string, example: Data Structures }
+        description: { type: string, nullable: true }
+        credit_hours: { type: integer, example: 4 }
+        created_at: { type: string, format: date-time }
+    CoursePrerequisite:
+      type: object
+      required: [id, code, title, credit_hours]
+      properties:
+        id: { type: integer }
+        code: { type: string }
+        title: { type: string }
+        credit_hours: { type: integer }
+    CourseWithPrerequisites:
+      allOf:
+        - $ref: '#/components/schemas/Course'
+        - type: object
+          required: [prerequisites]
+          properties:
+            prerequisites:
+              type: array
+              items: { $ref: '#/components/schemas/CoursePrerequisite' }
+
+    # ---------- enrollment
+    EnrollmentInput:
+      type: object
+      required: [studentId, courseId, semesterId]
+      properties:
+        studentId: { type: integer, minimum: 1 }
+        courseId: { type: integer, minimum: 1 }
+        semesterId: { type: integer, minimum: 1 }
+    Enrollment:
+      type: object
+      required: [id, student_id, course_id, semester_id, status, enrolled_at]
+      properties:
+        id: { type: integer }
+        student_id: { type: integer }
+        course_id: { type: integer }
+        semester_id: { type: integer }
+        status: { type: string, enum: [enrolled, dropped] }
+        enrolled_at: { type: string, format: date-time }
+    StudentEnrollment:
+      allOf:
+        - $ref: '#/components/schemas/Enrollment'
+        - type: object
+          required: [course_code, course_title, semester_name]
+          properties:
+            course_code: { type: string }
+            course_title: { type: string }
+            semester_name: { type: string }
+
+    # ---------- attendance
+    SessionInput:
+      type: object
+      required: [courseId, semesterId, sessionDate, startTime, endTime]
+      properties:
+        courseId: { type: integer, minimum: 1 }
+        semesterId: { type: integer, minimum: 1 }
+        sessionDate: { $ref: '#/components/schemas/Date' }
+        startTime: { $ref: '#/components/schemas/TimeInput' }
+        endTime: { $ref: '#/components/schemas/TimeInput' }
+    ClassSession:
+      type: object
+      required: [id, course_id, semester_id, session_date, start_time, end_time, created_at]
+      properties:
+        id: { type: integer }
+        course_id: { type: integer }
+        semester_id: { type: integer }
+        session_date: { $ref: '#/components/schemas/Date' }
+        start_time: { $ref: '#/components/schemas/Time' }
+        end_time: { $ref: '#/components/schemas/Time' }
+        created_at: { type: string, format: date-time }
+    AttendanceStatus:
+      type: string
+      enum: [present, absent, late]
+    AttendanceInput:
+      type: object
+      required: [sessionId, records]
+      properties:
+        sessionId: { type: integer, minimum: 1 }
+        records:
+          type: array
+          minItems: 1
+          description: One entry per student; the same student may not appear twice.
+          items:
+            type: object
+            required: [studentId, status]
+            properties:
+              studentId: { type: integer, minimum: 1 }
+              status: { $ref: '#/components/schemas/AttendanceStatus' }
+    AttendanceRecord:
+      type: object
+      required: [id, student_id, first_name, last_name, status, recorded_at]
+      properties:
+        id: { type: integer }
+        student_id: { type: integer }
+        first_name: { type: string }
+        last_name: { type: string }
+        status: { $ref: '#/components/schemas/AttendanceStatus' }
+        recorded_at: { type: string, format: date-time }
+    SessionAttendance:
+      type: object
+      required: [session, records]
+      properties:
+        session: { $ref: '#/components/schemas/ClassSession' }
+        records:
+          type: array
+          items: { $ref: '#/components/schemas/AttendanceRecord' }
+    StudentAttendance:
+      type: object
+      required: [id, session_id, session_date, start_time, end_time, course_id, course_code, course_title, semester_id, semester_name, status, recorded_at]
+      properties:
+        id: { type: integer }
+        session_id: { type: integer }
+        session_date: { $ref: '#/components/schemas/Date' }
+        start_time: { $ref: '#/components/schemas/Time' }
+        end_time: { $ref: '#/components/schemas/Time' }
+        course_id: { type: integer }
+        course_code: { type: string }
+        course_title: { type: string }
+        semester_id: { type: integer }
+        semester_name: { type: string }
+        status: { $ref: '#/components/schemas/AttendanceStatus' }
+        recorded_at: { type: string, format: date-time }
+    AttendanceSummary:
+      type: object
+      required: [totalSessions, presentSessions, lateSessions, percentage]
+      description: |
+        Counts sessions of courses the student is actively enrolled in (dropped courses excluded)
+        where attendance has been taken; a student left off a taken register counts as not present.
+        `late` does not count as present. `percentage` = presentSessions / totalSessions x 100,
+        rounded to 2 decimals, or `null` if there are no such sessions yet.
+      properties:
+        totalSessions: { type: integer, example: 4 }
+        presentSessions: { type: integer, example: 3 }
+        lateSessions: { type: integer, example: 0 }
+        percentage: { type: number, nullable: true, example: 75 }
+
+    # ---------- grades
+    GradeInput:
+      type: object
+      required: [studentId, courseId, semesterId, gradeLetter, gradePoints]
+      properties:
+        studentId: { type: integer, minimum: 1 }
+        courseId: { type: integer, minimum: 1 }
+        semesterId: { type: integer, minimum: 1 }
+        gradeLetter:
+          type: string
+          description: A-F; lowercase is accepted and stored in uppercase.
+          example: B
+        gradePoints: { $ref: '#/components/schemas/GradePoints' }
+    Grade:
+      type: object
+      required: [id, student_id, course_id, semester_id, grade_letter, grade_points, published, published_at, created_at]
+      properties:
+        id: { type: integer }
+        student_id: { type: integer }
+        course_id: { type: integer }
+        semester_id: { type: integer }
+        grade_letter: { $ref: '#/components/schemas/GradeLetter' }
+        grade_points: { type: number, example: 3 }
+        published: { type: boolean }
+        published_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+    StudentGrade:
+      allOf:
+        - $ref: '#/components/schemas/Grade'
+        - type: object
+          required: [course_code, course_title, credit_hours, semester_name]
+          properties:
+            course_code: { type: string }
+            course_title: { type: string }
+            credit_hours: { type: integer }
+            semester_name: { type: string }
+
+    # ---------- at-risk
+    AtRiskReason:
+      type: string
+      enum: [attendance_below_75, two_consecutive_fails]
+    AtRiskFlag:
+      type: object
+      required: [id, student_id, is_at_risk, reasons, flagged_at, cleared_at]
+      properties:
+        id: { type: integer }
+        student_id: { type: integer }
+        is_at_risk: { type: boolean }
+        reasons:
+          type: array
+          items: { $ref: '#/components/schemas/AtRiskReason' }
+        flagged_at: { type: string, format: date-time, nullable: true, description: When the most recent at-risk period started. }
+        cleared_at: { type: string, format: date-time, nullable: true, description: When it ended; `null` while still at risk. }
+    AtRiskEvaluation:
+      type: object
+      required: [studentId, isAtRisk, reasons, details, storedFlag]
+      properties:
+        studentId: { type: integer }
+        isAtRisk: { type: boolean }
+        reasons:
+          type: array
+          items: { $ref: '#/components/schemas/AtRiskReason' }
+        details:
+          type: object
+          required: [attendancePercentage, lastTwoPublishedGrades]
+          properties:
+            attendancePercentage: { type: number, nullable: true }
+            lastTwoPublishedGrades:
+              type: array
+              maxItems: 2
+              items:
+                type: object
+                required: [gradeId, courseCode, semesterName, gradeLetter, publishedAt]
+                properties:
+                  gradeId: { type: integer }
+                  courseCode: { type: string }
+                  semesterName: { type: string }
+                  gradeLetter: { $ref: '#/components/schemas/GradeLetter' }
+                  publishedAt: { type: string, format: date-time }
+        storedFlag:
+          allOf:
+            - $ref: '#/components/schemas/AtRiskFlag'
+          nullable: true
+    AtRiskStudent:
+      type: object
+      required: [student_id, first_name, last_name, email, flagged_at, reasons]
+      properties:
+        student_id: { type: integer }
+        first_name: { type: string }
+        last_name: { type: string }
+        email: { type: string }
+        flagged_at: { type: string, format: date-time }
+        reasons:
+          type: array
+          items: { $ref: '#/components/schemas/AtRiskReason' }
+
+    # ---------- exams
+    ExamInput:
+      type: object
+      required: [courseId, semesterId, examDate, startTime, endTime, room]
+      properties:
+        courseId: { type: integer, minimum: 1 }
+        semesterId: { type: integer, minimum: 1 }
+        examDate: { $ref: '#/components/schemas/Date' }
+        startTime: { $ref: '#/components/schemas/TimeInput' }
+        endTime: { $ref: '#/components/schemas/TimeInput' }
+        room:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: Trimmed; compared case-insensitively when checking for conflicts.
+          example: Hall A
+    Exam:
+      type: object
+      required: [id, course_id, course_code, course_title, semester_id, semester_name, exam_date, start_time, end_time, room, created_at]
+      properties:
+        id: { type: integer }
+        course_id: { type: integer }
+        course_code: { type: string, example: CS101 }
+        course_title: { type: string }
+        semester_id: { type: integer }
+        semester_name: { type: string, example: Fall 2026 }
+        exam_date: { $ref: '#/components/schemas/Date' }
+        start_time: { $ref: '#/components/schemas/Time' }
+        end_time: { $ref: '#/components/schemas/Time' }
+        room: { type: string, example: Hall A }
+        created_at: { type: string, format: date-time }
+
+    # ---------- appeals
+    AppealStatus:
+      type: string
+      enum: [pending, under_review, resolved_approved, resolved_rejected]
+    AppealInput:
+      type: object
+      required: [studentId, reason]
+      properties:
+        studentId: { type: integer, minimum: 1, description: Must be the student the grade belongs to. }
+        reason: { type: string, minLength: 1, maxLength: 2000, description: Trimmed. }
+    AppealStatusInput:
+      type: object
+      required: [status]
+      properties:
+        status: { $ref: '#/components/schemas/AppealStatus' }
+        instructorResponse:
+          type: string
+          nullable: true
+          description: Required (non-blank) for `resolved_*`; optional for `under_review` (if omitted, any existing response is kept).
+        newGradeLetter:
+          type: string
+          nullable: true
+          description: Only with `resolved_approved`, and only together with `newGradePoints`. A-F; lowercase accepted.
+        newGradePoints:
+          allOf:
+            - $ref: '#/components/schemas/GradePoints'
+          nullable: true
+          description: Only with `resolved_approved`, and only together with `newGradeLetter`.
+    Appeal:
+      type: object
+      required: [id, grade_id, student_id, first_name, last_name, course_id, course_code, course_title, semester_id, semester_name,
+        original_grade_letter, original_grade_points, current_grade_letter, current_grade_points, reason, status,
+        instructor_response, created_at, resolved_at]
+      properties:
+        id: { type: integer }
+        grade_id: { type: integer }
+        student_id: { type: integer }
+        first_name: { type: string }
+        last_name: { type: string }
+        course_id: { type: integer }
+        course_code: { type: string }
+        course_title: { type: string }
+        semester_id: { type: integer }
+        semester_name: { type: string }
+        original_grade_letter: { $ref: '#/components/schemas/GradeLetter' }
+        original_grade_points: { type: number, description: The grade when the appeal was filed. }
+        current_grade_letter: { $ref: '#/components/schemas/GradeLetter' }
+        current_grade_points: { type: number, description: The grade now (differs from original after an approved regrade). }
+        reason: { type: string }
+        status: { $ref: '#/components/schemas/AppealStatus' }
+        instructor_response: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
+        resolved_at: { type: string, format: date-time, nullable: true }

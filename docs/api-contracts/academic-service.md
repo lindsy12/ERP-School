@@ -5,6 +5,8 @@
 Base URL: `http://academic-service:4002` (reach it through the gateway in production). No authentication yet; it will be added once auth-service is ready.
 Every error response has the shape `{ "error": "message" }`. A request body that isn't valid JSON returns `400`.
 
+> **Interactive version:** the same contract is published as an OpenAPI 3.0 spec with Swagger UI at **`GET /api-docs`** on the running service (e.g. `http://localhost:4002/api-docs`). The source is `services/academic-service/src/docs/openapi.yaml`. It covers every endpoint the service serves, with request/response schemas and error responses, and lets you try requests from the browser. It also includes the grade-appeal and transcript endpoints, which are not yet in the table below. Update the spec and this file together.
+
 | Method | Path | Request body | Response | Notes |
 |---|---|---|---|---|
 | GET | `/health` | — | `200 { status, service, db }` | `500` if the DB is unreachable. |

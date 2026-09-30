@@ -15,6 +15,9 @@ const examRoutes = require('./routes/examRoutes');
 const appealRoutes = require('./routes/appealRoutes');
 const transcriptRoutes = require('./routes/transcriptRoutes');
 const rabbitmq = require('./services/rabbitmq');
+const path = require('path');
+const swaggerUi = require('swagger-ui-express');
+const YAML = require('yamljs');
 
 const app = express();
 app.use(cors());
@@ -45,6 +48,12 @@ app.use('/api/v1', atRiskRoutes);
 // Also hold full paths (/grades/:gradeId/appeals, /appeals/..., /students/:studentId/transcript/pdf).
 app.use('/api/v1', appealRoutes);
 app.use('/api/v1', transcriptRoutes);
+
+// Interactive API docs (Swagger UI) at GET /api-docs, generated from src/docs/openapi.yaml.
+// The YAML is loaded once at startup, so restart the service after editing it.
+// Keep it in sync with docs/api-contracts/academic-service.md.
+const openApiSpec = YAML.load(path.join(__dirname, 'docs', 'openapi.yaml'));
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openApiSpec, { customSiteTitle: 'Academic Service API' }));
 
 // Error handler for errors thrown outside our controllers' try/catch, most commonly
 // malformed JSON caught by express.json(). Without this, Express replies with an HTML
