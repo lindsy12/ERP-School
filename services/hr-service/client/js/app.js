@@ -45,6 +45,12 @@ function buildShell() {
 
 async function route() {
   if (!session()) { showLogin(); return; }
+  // HR is for school staff; students get the ERP's "not for your role" notice.
+  if (session().role === 'STUDENT') {
+    const { allowRoles } = await import('/auth/js/access.js');
+    await allowRoles(['SUPER_ADMIN', 'ADMIN', 'STAFF']);
+    return;
+  }
   $('login').hidden = true;
   $('shell').hidden = false;
   buildShell();

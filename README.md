@@ -99,8 +99,12 @@ Then:
 1. First time only, create the Super Admin: fill `SEED_*` in `services/auth-service/.env`, then
    `docker compose exec auth-service npm run seed`.
 2. Optional demo data for Academics: `docker compose exec academic-service npm run seed`.
-3. Open http://localhost:3000, sign in, and pick a module from the home page: Academics, Finance,
-   Administration & HR, Notifications. `http://localhost:3000/health` shows every service's status.
+3. Open http://localhost:3000, sign in, and pick a module from the home page. Each role sees its own
+   modules: administrators everything; staff Academics (grading), Finance, My HR and Notifications;
+   students My studies and Notifications. `http://localhost:3000/health` shows every service's status.
+4. To demo other roles, create accounts on the Users page (`/auth/#/users`). A STUDENT account sees
+   its own record when its email matches a student on the Academics → Registrar page (the seeded
+   students use `firstname.lastname@student.school.cm`).
 
 Everything goes through the gateway on port 3000; no other service is published. If another project
 already uses RabbitMQ's port 15672, put `RABBITMQ_UI_PORT=15673` in a `.env` file next to `docker-compose.yml`.
