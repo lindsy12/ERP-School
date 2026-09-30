@@ -32,37 +32,41 @@ app.get('/health', async (req, res) => {
   }
 });
 
-// Feature routers, versioned under /api/v1 so a future v2 can live alongside them.
-app.use('/api/v1/programs', programRoutes);
-app.use('/api/v1/courses', courseRoutes);
-app.use('/api/v1/enrollments', enrollmentRoutes);
-app.use('/api/v1/students', studentRoutes);
-// Second router on the same path: requests that studentRoutes doesn't match fall through here.
-app.use('/api/v1/students', studentRecordRoutes);
-app.use('/api/v1/sessions', sessionRoutes);
-app.use('/api/v1/attendance', attendanceRoutes);
-app.use('/api/v1/grades', gradeRoutes);
-app.use('/api/v1/exams', examRoutes);
-// Holds full paths (/students/:studentId/at-risk and /at-risk-students), so it's mounted at /api/v1.
-app.use('/api/v1', atRiskRoutes);
-// Also hold full paths (/grades/:gradeId/appeals, /appeals/..., /students/:studentId/transcript/pdf).
-app.use('/api/v1', appealRoutes);
-app.use('/api/v1', transcriptRoutes);
-
-// Interactive API docs (Swagger UI) at GET /api-docs, generated from src/docs/openapi.yaml.
-// The YAML is loaded once at startup, so restart the service after editing it.
+// OpenAPI spec (src/docs/openapi.yaml), loaded once at startup, so restart after editing it.
 // Keep it in sync with docs/api-contracts/academic-service.md.
 const openApiSpec = YAML.load(path.join(__dirname, 'docs', 'openapi.yaml'));
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openApiSpec, { customSiteTitle: 'Academic Service API' }));
 
-// The same spec at the paths from the project convention (CLAUDE.md): Swagger UI at
-// /api/v1/academic/docs and the raw JSON at /api/v1/academic/openapi.json. These sit under the
-// gateway's /api/v1/academic prefix, so they're reachable through the gateway; /api-docs and
-// /openapi.json are the direct-to-service equivalents.
+// Every API route lives under /api/v1/academic, the project convention (CLAUDE.md) and the
+// prefix the gateway forwards to this service. Each route module keeps its own internal paths;
+// only this one mount point sets the prefix. GET /health above stays unprefixed for Docker.
+const apiRouter = express.Router();
+apiRouter.use('/programs', programRoutes);
+apiRouter.use('/courses', courseRoutes);
+apiRouter.use('/enrollments', enrollmentRoutes);
+apiRouter.use('/students', studentRoutes);
+// Second router on the same path: requests that studentRoutes doesn't match fall through here.
+apiRouter.use('/students', studentRecordRoutes);
+apiRouter.use('/sessions', sessionRoutes);
+apiRouter.use('/attendance', attendanceRoutes);
+apiRouter.use('/grades', gradeRoutes);
+apiRouter.use('/exams', examRoutes);
+// These three hold full paths (/students/:studentId/at-risk, /at-risk-students,
+// /grades/:gradeId/appeals, /appeals/..., /students/:studentId/transcript/pdf), so they mount at the root.
+apiRouter.use(atRiskRoutes);
+apiRouter.use(appealRoutes);
+apiRouter.use(transcriptRoutes);
+
+// API docs: Swagger UI at /api/v1/academic/docs and the raw spec at /api/v1/academic/openapi.json.
 // serveFiles (not serve) gives this mount its own copy of Swagger UI's setup script, which is
-// the library's supported way to host more than one UI instance in one app.
-app.use('/api/v1/academic/docs', swaggerUi.serveFiles(openApiSpec), swaggerUi.setup(openApiSpec, { customSiteTitle: 'Academic Service API' }));
-app.get(['/api/v1/academic/openapi.json', '/openapi.json'], (req, res) => res.json(openApiSpec));
+// the library's supported way to host more than one UI instance in one app (see /api-docs below).
+apiRouter.use('/docs', swaggerUi.serveFiles(openApiSpec), swaggerUi.setup(openApiSpec, { customSiteTitle: 'Academic Service API' }));
+apiRouter.get('/openapi.json', (req, res) => res.json(openApiSpec));
+
+app.use('/api/v1/academic', apiRouter);
+
+// Unprefixed aliases for the docs, handy when calling the service directly (not via the gateway).
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openApiSpec, { customSiteTitle: 'Academic Service API' }));
+app.get('/openapi.json', (req, res) => res.json(openApiSpec));
 
 // Error handler for errors thrown outside our controllers' try/catch, most commonly
 // malformed JSON caught by express.json(). Without this, Express replies with an HTML

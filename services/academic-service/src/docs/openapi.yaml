@@ -15,6 +15,8 @@ info:
     `docs/api-contracts/academic-service.md`; the two must be updated together.
 
     **Conventions**
+    - Every endpoint is under `/api/v1/academic`, the prefix the API gateway forwards to this service.
+      Only `GET /health` is unprefixed (for Docker health checks).
     - No authentication yet; it will be added once the Auth service and gateway headers are in place.
     - Errors are JSON `{ "error": "message" }`. Some add fields: `code` (appeals),
       `missingPrerequisites` (enrollment 409) and `conflicts` (exam 409).
@@ -78,7 +80,7 @@ paths:
                   message: { type: string }
 
   # ---------------------------------------------------------------- Programs
-  /api/v1/programs:
+  /api/v1/academic/programs:
     post:
       tags: [Programs]
       summary: Create a program
@@ -118,7 +120,7 @@ paths:
         '500': { $ref: '#/components/responses/ServerError' }
 
   # ---------------------------------------------------------------- Courses
-  /api/v1/courses:
+  /api/v1/academic/courses:
     post:
       tags: [Courses]
       summary: Create a course (optionally with prerequisites)
@@ -155,7 +157,7 @@ paths:
     get:
       tags: [Courses]
       summary: List all courses
-      description: Ordered by id. Prerequisites are not included; use GET `/api/v1/courses/{id}`.
+      description: Ordered by id. Prerequisites are not included; use GET `/api/v1/academic/courses/{id}`.
       operationId: listCourses
       responses:
         '200':
@@ -167,7 +169,7 @@ paths:
                 items: { $ref: '#/components/schemas/Course' }
         '500': { $ref: '#/components/responses/ServerError' }
 
-  /api/v1/courses/{id}:
+  /api/v1/academic/courses/{id}:
     parameters:
       - $ref: '#/components/parameters/IdPath'
     get:
@@ -232,7 +234,7 @@ paths:
         '500': { $ref: '#/components/responses/ServerError' }
 
   # ---------------------------------------------------------------- Enrollment
-  /api/v1/enrollments:
+  /api/v1/academic/enrollments:
     post:
       tags: [Enrollment]
       summary: Enroll a student in a course for a semester
@@ -281,7 +283,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
 
-  /api/v1/students/{studentId}/enrollments:
+  /api/v1/academic/students/{studentId}/enrollments:
     parameters:
       - $ref: '#/components/parameters/StudentIdPath'
     get:
@@ -302,7 +304,7 @@ paths:
         '500': { $ref: '#/components/responses/ServerError' }
 
   # ---------------------------------------------------------------- Attendance
-  /api/v1/sessions:
+  /api/v1/academic/sessions:
     post:
       tags: [Attendance]
       summary: Create a class session
@@ -331,7 +333,7 @@ paths:
               schema: { $ref: '#/components/schemas/Error' }
         '500': { $ref: '#/components/responses/ServerError' }
 
-  /api/v1/attendance:
+  /api/v1/academic/attendance:
     post:
       tags: [Attendance]
       summary: Record attendance for a whole session
@@ -367,7 +369,7 @@ paths:
               example: { error: 'Attendance already recorded for studentId(s) 1 in session 1; nothing was saved' }
         '500': { $ref: '#/components/responses/ServerError' }
 
-  /api/v1/attendance/session/{sessionId}:
+  /api/v1/academic/attendance/session/{sessionId}:
     parameters:
       - name: sessionId
         in: path
@@ -388,7 +390,7 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/ServerError' }
 
-  /api/v1/students/{studentId}/attendance:
+  /api/v1/academic/students/{studentId}/attendance:
     parameters:
       - $ref: '#/components/parameters/StudentIdPath'
     get:
@@ -415,7 +417,7 @@ paths:
         '500': { $ref: '#/components/responses/ServerError' }
 
   # ---------------------------------------------------------------- Grades
-  /api/v1/grades:
+  /api/v1/academic/grades:
     post:
       tags: [Grades]
       summary: Record or correct a draft grade
@@ -453,7 +455,7 @@ paths:
               example: { error: "Grade 1 for this student, course and semester is already published and can't be changed" }
         '500': { $ref: '#/components/responses/ServerError' }
 
-  /api/v1/grades/{id}/publish:
+  /api/v1/academic/grades/{id}/publish:
     parameters:
       - $ref: '#/components/parameters/IdPath'
     put:
@@ -474,7 +476,7 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/ServerError' }
 
-  /api/v1/students/{studentId}/grades:
+  /api/v1/academic/students/{studentId}/grades:
     parameters:
       - $ref: '#/components/parameters/StudentIdPath'
     get:
@@ -505,7 +507,7 @@ paths:
         '500': { $ref: '#/components/responses/ServerError' }
 
   # ---------------------------------------------------------------- At-Risk
-  /api/v1/students/{studentId}/at-risk:
+  /api/v1/academic/students/{studentId}/at-risk:
     parameters:
       - $ref: '#/components/parameters/StudentIdPath'
     get:
@@ -529,7 +531,7 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/ServerError' }
 
-  /api/v1/at-risk-students:
+  /api/v1/academic/at-risk-students:
     get:
       tags: [At-Risk]
       summary: List students currently flagged at risk
@@ -546,7 +548,7 @@ paths:
         '500': { $ref: '#/components/responses/ServerError' }
 
   # ---------------------------------------------------------------- Exams
-  /api/v1/exams:
+  /api/v1/academic/exams:
     post:
       tags: [Exams]
       summary: Schedule an exam
@@ -609,7 +611,7 @@ paths:
               example: { error: 'courseId must be a positive integer' }
         '500': { $ref: '#/components/responses/ServerError' }
 
-  /api/v1/exams/{id}:
+  /api/v1/academic/exams/{id}:
     parameters:
       - $ref: '#/components/parameters/IdPath'
     get:
@@ -668,7 +670,7 @@ paths:
         '500': { $ref: '#/components/responses/ServerError' }
 
   # ---------------------------------------------------------------- Appeals
-  /api/v1/grades/{gradeId}/appeals:
+  /api/v1/academic/grades/{gradeId}/appeals:
     parameters:
       - name: gradeId
         in: path
@@ -712,7 +714,7 @@ paths:
               example: { error: 'Grade 1 already has an open appeal (appeal 1, status pending)', code: OPEN_APPEAL_EXISTS }
         '500': { $ref: '#/components/responses/ServerError' }
 
-  /api/v1/appeals:
+  /api/v1/academic/appeals:
     get:
       tags: [Appeals]
       summary: List appeals
@@ -738,7 +740,7 @@ paths:
               schema: { $ref: '#/components/schemas/Error' }
         '500': { $ref: '#/components/responses/ServerError' }
 
-  /api/v1/appeals/{id}:
+  /api/v1/academic/appeals/{id}:
     parameters:
       - $ref: '#/components/parameters/IdPath'
     get:
@@ -755,7 +757,7 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/ServerError' }
 
-  /api/v1/appeals/{id}/status:
+  /api/v1/academic/appeals/{id}/status:
     parameters:
       - $ref: '#/components/parameters/IdPath'
     put:
@@ -804,7 +806,7 @@ paths:
               schema: { $ref: '#/components/schemas/Error' }
 
   # ---------------------------------------------------------------- Transcript
-  /api/v1/students/{studentId}/transcript/pdf:
+  /api/v1/academic/students/{studentId}/transcript/pdf:
     parameters:
       - $ref: '#/components/parameters/StudentIdPath'
     get:
