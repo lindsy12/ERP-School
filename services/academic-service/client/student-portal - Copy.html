@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Student Portal — UniERP</title>
+<style>
+  :root {
+    --sidebar-w: 226px;
+    --sidebar-w-collapsed: 74px;
+
+    --bg: #F4F6FA;
+    --panel: #FFFFFF;
+    --text: #1B1F27;
+    --text-muted: #7C8194;
+    --border: #E7E9F0;
+
+    --brand: #2563EB;
+    --brand-dark: #1D4ED8;
+    --brand-soft: #DBEAFE;
+    --brand-text: #1D4ED8;
+
+    --green: #16A34A; --green-bg: #DCFCE7;
+    --red: #DC2626; --red-bg: #FEE2E2;
+    --amber: #D97706; --amber-bg: #FEF3C7;
+
+    --radius: 12px;
+    --shadow: 0 1px 2px rgba(20,20,30,0.04), 0 2px 10px rgba(20,20,30,0.05);
+  }
+
+  * { box-sizing: border-box; }
+  @media (prefers-reduced-motion: reduce) { *,*::before,*::after{ animation-duration:.01ms!important; transition-duration:.01ms!important; } }
+
+  body { margin: 0; font-family: 'Inter', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); display: flex; min-height: 100vh; }
+  a { color: inherit; }
+  :focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar { width: var(--sidebar-w); background: var(--panel); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; padding: 18px 12px; position: sticky; top: 0; height: 100vh; transition: width .18s ease; }
+  .sidebar.collapsed { width: var(--sidebar-w-collapsed); }
+  .sidebar-head { display: flex; align-items: center; justify-content: space-between; padding: 2px 8px 18px; margin-bottom: 6px; }
+  .brand { display: flex; align-items: center; gap: 9px; font-weight: 800; font-size: 1.05rem; white-space: nowrap; overflow: hidden; letter-spacing: -0.01em; }
+  .brand-mark { width: 28px; height: 28px; border-radius: 8px; background: linear-gradient(135deg, var(--brand), var(--brand-dark)); flex-shrink: 0; display:flex; align-items:center; justify-content:center; color:#fff; font-size:.8rem; font-weight:800; }
+  .sidebar.collapsed .brand-label { display: none; }
+  .collapse-btn { width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--border); background: var(--panel); cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text-muted); flex-shrink: 0; }
+  .collapse-btn:hover { background: var(--bg); }
+  .sidebar.collapsed .collapse-btn svg { transform: rotate(180deg); }
+
+  .nav-section-label { font-size: .7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; padding: 14px 12px 6px; }
+  .sidebar.collapsed .nav-section-label { display: none; }
+
+  .nav-item { display: flex; align-items: center; gap: 11px; padding: 9px 12px; color: var(--text-muted); text-decoration: none; font-size: .89rem; border-radius: 9px; cursor: pointer; background: none; border: none; width: 100%; text-align: left; font-family: inherit; margin-bottom: 1px; white-space: nowrap; overflow: hidden; }
+  .nav-item svg { flex-shrink: 0; width: 18px; height: 18px; }
+  .nav-item:hover { background: var(--bg); color: var(--text); }
+  .nav-item.active { background: var(--brand-soft); color: var(--brand-text); font-weight: 600; }
+  .sidebar.collapsed .nav-label { display: none; }
+  .sidebar.collapsed .nav-item { justify-content: center; }
+  .sidebar-footer { margin-top: auto; padding-top: 12px; border-top: 1px solid var(--border); }
+
+  /* ---------- Main / Topbar ---------- */
+  .main { flex: 1; min-width: 0; }
+  .topbar { display: flex; align-items: center; gap: 14px; padding: 16px 28px; background: var(--panel); border-bottom: 1px solid var(--border); }
+  .search-wrap { flex: 1; display: flex; gap: 8px; max-width: 560px; }
+  .search-input { flex: 1; padding: 9px 13px; border: 1px solid var(--border); border-radius: 9px; font-size: .87rem; font-family: inherit; background: var(--bg); }
+  .module-select { padding: 9px 11px; border: 1px solid var(--border); border-radius: 9px; font-size: .85rem; font-family: inherit; background: var(--bg); color: var(--text-muted); }
+  .search-btn { padding: 9px 16px; border-radius: 9px; border: none; background: var(--text); color: #fff; font-size: .85rem; font-weight: 600; cursor: pointer; }
+
+  .topbar-right { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+  .icon-btn { width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--border); background: var(--panel); display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-muted); position: relative; }
+  .icon-btn:hover { background: var(--bg); }
+  .icon-btn .dot { position: absolute; top: 7px; right: 7px; width: 7px; height: 7px; background: var(--red); border-radius: 50%; border: 1.5px solid #fff; }
+  .user-chip { display: flex; align-items: center; gap: 8px; padding: 5px 10px 5px 5px; border-radius: 10px; cursor: pointer; }
+  .user-chip:hover { background: var(--bg); }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--brand-soft); color: var(--brand-text); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: .78rem; flex-shrink: 0; }
+  .user-name { font-size: .85rem; font-weight: 600; white-space: nowrap; }
+
+  .breadcrumb { padding: 12px 28px; font-size: .82rem; color: var(--text-muted); background: var(--bg); }
+  .breadcrumb b { color: var(--text); font-weight: 600; }
+
+  .content { padding: 20px 28px 32px; }
+  .view { display: none; animation: fadeIn .2s ease; }
+  .view.active { display: block; }
+  @keyframes fadeIn { from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:translateY(0);} }
+
+  .page-heading { display:flex; align-items:center; gap:10px; margin: 2px 0 18px; }
+  .page-heading svg { color: var(--brand); width:22px; height:22px; }
+  .page-heading h1 { font-size: 1.32rem; font-weight: 800; margin: 0; letter-spacing: -0.01em; }
+
+  /* ---------- Two-column dashboard layout ---------- */
+  .dash-grid { display: grid; grid-template-columns: 1fr 300px; gap: 20px; align-items: start; }
+  @media (max-width: 900px) { .dash-grid { grid-template-columns: 1fr; } }
+
+  .stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px; }
+  @media (max-width: 560px) { .stat-row { grid-template-columns: 1fr; } }
+
+  .stat-card { border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); }
+  .stat-card.brand-fill { background: linear-gradient(135deg, var(--brand), var(--brand-dark)); color: #fff; }
+  .stat-label { font-size: .8rem; font-weight: 600; opacity: .85; margin-bottom: 6px; }
+  .stat-number { font-size: 2.2rem; font-weight: 800; line-height: 1; letter-spacing: -0.02em; }
+  .stat-unit { font-size: .95rem; opacity: .7; font-weight: 500; }
+  .stat-note { margin-top: 7px; font-size: .8rem; opacity: .75; }
+
+  .ring-card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; display: flex; align-items: center; gap: 16px; box-shadow: var(--shadow); }
+  .ring-wrap { position: relative; width: 84px; height: 84px; flex-shrink: 0; }
+  .ring-percent { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; font-weight: 800; }
+  .ring-info-label { font-size: .8rem; color: var(--text-muted); margin-bottom: 3px; }
+  .ring-info-title { font-size: .96rem; font-weight: 700; }
+
+  .section-title { font-size: 1rem; font-weight: 700; margin: 4px 0 12px; }
+
+  /* ---------- Course cards (banner + progress) ---------- */
+  .course-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+  .course-card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
+  .course-banner { position: relative; height: 84px; display: flex; align-items: flex-start; justify-content: flex-end; padding: 8px; }
+  .course-banner.b1 { background: linear-gradient(135deg,#F472B6,#DB2777); }
+  .course-banner.b2 { background: linear-gradient(135deg,#2DD4BF,#0D9488); }
+  .course-banner.b3 { background: linear-gradient(135deg,#FBBF24,#B45309); }
+  .course-banner.b4 { background: linear-gradient(135deg,#60A5FA,#2563EB); }
+  .course-banner.b5 { background: linear-gradient(135deg,#818CF8,#4F46E5); }
+  .progress-pill { position: absolute; bottom: 8px; left: 8px; background: rgba(0,0,0,0.32); color: #fff; font-size: .68rem; font-weight: 700; padding: 3px 8px; border-radius: 20px; }
+  .progress-strip { position: absolute; bottom: 0; left: 0; right: 0; height: 4px; background: rgba(255,255,255,0.35); }
+  .progress-strip-fill { height: 100%; background: #fff; }
+  .course-card-body { padding: 12px 14px 14px; }
+  .course-card-tag { font-size: .7rem; color: var(--text-muted); font-weight: 600; margin-bottom: 3px; text-transform: uppercase; letter-spacing: .03em; }
+  .course-card-title { font-size: .89rem; font-weight: 700; line-height: 1.3; }
+  .course-card-meta { font-size: .78rem; color: var(--text-muted); margin-top: 5px; }
+
+  /* ---------- Right-column widgets ---------- */
+  .widget { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); margin-bottom: 16px; }
+  .widget-title { display: flex; align-items: center; gap: 8px; font-size: .92rem; font-weight: 700; margin-bottom: 12px; }
+  .widget-title svg { width: 16px; height: 16px; color: var(--brand); }
+
+  .announcement { padding: 9px 0; border-bottom: 1px solid var(--border); }
+  .announcement:last-child { border-bottom: none; padding-bottom: 0; }
+  .announcement-title { font-size: .84rem; font-weight: 600; color: var(--brand-text); }
+  .announcement-meta { font-size: .74rem; color: var(--text-muted); margin-top: 2px; }
+
+  .mini-cal { width: 100%; border-collapse: collapse; }
+  .mini-cal th { font-size: .66rem; color: var(--text-muted); font-weight: 600; padding: 3px; text-align: center; }
+  .mini-cal td { text-align: center; font-size: .76rem; padding: 5px 3px; color: var(--text); }
+  .mini-cal td.muted { color: #C7CAD6; }
+  .mini-cal td.today { background: var(--brand); color: #fff; border-radius: 6px; font-weight: 700; }
+
+  /* ---------- Panels / tables (shared) ---------- */
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); margin-bottom: 16px; }
+  .panel-title { font-size: .98rem; font-weight: 700; margin: 0 0 4px; }
+  .panel-sub { font-size: .82rem; color: var(--text-muted); margin-bottom: 16px; }
+
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-size: .72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: .02em; padding: 10px; background: var(--bg); border-bottom: 1px solid var(--border); }
+  th:first-child { border-radius: 8px 0 0 8px; } th:last-child { border-radius: 0 8px 8px 0; }
+  td { padding: 12px 10px; border-bottom: 1px solid var(--border); font-size: .87rem; }
+  tr:last-child td { border-bottom: none; }
+
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: .74rem; font-weight: 700; }
+  .badge-green { background: var(--green-bg); color: var(--green); }
+  .badge-red { background: var(--red-bg); color: var(--red); }
+  .badge-amber { background: var(--amber-bg); color: var(--amber); }
+  .badge-blue { background: var(--brand-soft); color: var(--brand-text); }
+
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 15px; border-radius: 9px; border: none; font-size: .84rem; font-weight: 700; cursor: pointer; font-family: inherit; }
+  .btn-primary { background: var(--brand); color: #fff; }
+  .btn-primary:hover { background: var(--brand-dark); }
+  .btn-outline { background: var(--panel); border: 1px solid var(--border); color: var(--text); }
+  .btn-outline:hover { border-color: var(--brand); color: var(--brand-text); }
+  .btn-sm { padding: 5px 11px; font-size: .76rem; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+  input, select, textarea { padding: 8px 11px; border: 1px solid var(--border); border-radius: 8px; font-size: .87rem; font-family: inherit; width: 100%; background: var(--panel); }
+  label { display: block; font-size: .78rem; font-weight: 600; margin-bottom: 5px; color: var(--text-muted); }
+
+  /* ---------- Register for courses ---------- */
+  .prereq-warning { background: var(--red-bg); color: var(--red); font-size: .8rem; padding: 8px 12px; border-radius: 8px; margin-top: 8px; }
+  .enroll-success { background: var(--green-bg); color: var(--green); font-size: .8rem; padding: 8px 12px; border-radius: 8px; margin-top: 8px; }
+
+  /* ---------- Timetable ---------- */
+  .tt-wrap { overflow-x: auto; }
+  .tt-grid { display: grid; grid-template-columns: 64px repeat(5, 1fr); min-width: 680px; }
+  .tt-corner, .tt-day-head { padding: 8px 6px; font-size: .74rem; font-weight: 700; color: var(--text-muted); text-align: center; border-bottom: 1px solid var(--border); }
+  .tt-time { padding: 10px 6px; font-size: .7rem; color: var(--text-muted); border-top: 1px solid var(--border); text-align: right; }
+  .tt-cell { border-top: 1px solid var(--border); border-left: 1px solid var(--border); min-height: 46px; padding: 3px; position: relative; }
+  .tt-block { border-radius: 7px; padding: 5px 7px; font-size: .72rem; color: #fff; font-weight: 600; line-height: 1.25; }
+  .tt-block small { display: block; font-weight: 500; opacity: .9; font-size: .66rem; }
+
+  /* ---------- Transcript ---------- */
+  .term-header { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; cursor: pointer; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); margin-bottom: 8px; box-shadow: var(--shadow); }
+  .term-header:hover { border-color: var(--brand); }
+  .term-name { font-weight: 700; font-size: .92rem; }
+  .term-meta { color: var(--text-muted); font-size: .8rem; margin-top: 2px; }
+  .term-gpa { font-weight: 800; color: var(--brand-text); font-size: .98rem; }
+  .term-body { padding: 4px 4px 16px; display: none; }
+  .term.open .term-body { display: block; }
+  .term.open .chevron { transform: rotate(90deg); }
+  .chevron { transition: transform .15s ease; color: var(--text-muted); }
+  .cumulative-bar { display: flex; justify-content: space-between; align-items: center; background: var(--brand-soft); border-radius: 12px; padding: 14px 18px; margin-top: 4px; }
+  .cumulative-bar .label { font-size: .82rem; color: var(--brand-text); font-weight: 700; }
+  .cumulative-bar .value { font-size: 1.3rem; font-weight: 800; color: var(--brand-text); }
+
+  .appeal-link { background: none; border: 1px solid var(--border); color: var(--brand-text); font-size: .72rem; font-weight: 700; padding: 4px 9px; border-radius: 20px; cursor: pointer; font-family: inherit; }
+  .appeal-link:hover { border-color: var(--brand); }
+  .appeal-form { margin-top: 8px; padding: 10px; background: var(--bg); border-radius: 8px; display: none; }
+  .appeal-form.open { display: block; }
+  .appeal-form textarea { min-height: 56px; resize: vertical; margin-bottom: 8px; }
+
+  /* ---------- Wallet ---------- */
+  .wallet-hero { display: flex; justify-content: space-between; align-items: center; }
+  .wallet-balance-label { font-size: .82rem; opacity: .85; }
+  .wallet-balance-value { font-size: 2rem; font-weight: 800; margin-top: 4px; }
+  .wallet-actions { display: flex; gap: 10px; }
+  .wallet-note { background: var(--amber-bg); color: var(--amber); font-size: .78rem; padding: 8px 12px; border-radius: 8px; margin-top: 14px; }
+
+  /* ---------- Profile ---------- */
+  .profile-card { display: flex; gap: 20px; align-items: center; padding: 22px; }
+  .profile-avatar { width: 72px; height: 72px; border-radius: 50%; background: var(--brand-soft); color: var(--brand-text); display: flex; align-items: center; justify-content: center; font-size: 1.5rem; font-weight: 800; flex-shrink: 0; }
+  .profile-name { font-size: 1.15rem; font-weight: 800; }
+  .profile-role { color: var(--text-muted); font-size: .84rem; margin-top: 2px; }
+  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 28px; padding: 4px 22px 22px; }
+  .detail-label { font-size: .74rem; color: var(--text-muted); margin-bottom: 3px; }
+  .detail-value { font-size: .9rem; font-weight: 700; }
+</style>
+</head>
+<body>
+
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-head">
+    <div class="brand"><div class="brand-mark">U</div><span class="brand-label">UniERP</span></div>
+    <button class="collapse-btn" onclick="toggleSidebar()" title="Collapse sidebar">
+      <svg viewBox="0 0 20 20" fill="none" width="14" height="14"><path d="M12 4l-6 6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+  </div>
+
+  <div class="nav-section-label">Academics</div>
+  <button class="nav-item active" data-view="dashboard" onclick="showView('dashboard', this)">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M3 12l9-9 9 9M5 10v10h5v-6h4v6h5V10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span class="nav-label">Dashboard</span>
+  </button>
+  <button class="nav-item" data-view="register" onclick="showView('register', this)">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M9 12h6M12 9v6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><rect x="3" y="4" width="18" height="17" rx="2" stroke="currentColor" stroke-width="1.8"/></svg>
+    <span class="nav-label">Register for Courses</span>
+  </button>
+  <button class="nav-item" data-view="courses" onclick="showView('courses', this)">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M4 19.5V6a2 2 0 012-2h12a2 2 0 012 2v13.5M4 19.5A2.5 2.5 0 016.5 17H20M4 19.5A2.5 2.5 0 006.5 22H20v-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span class="nav-label">My Courses</span>
+  </button>
+  <button class="nav-item" data-view="timetable" onclick="showView('timetable', this)">
+    <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M3 10h18M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+    <span class="nav-label">Timetable</span>
+  </button>
+  <button class="nav-item" data-view="transcript" onclick="showView('transcript', this)">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M8 2v4M16 2v4M3 9h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span class="nav-label">Transcript</span>
+  </button>
+
+  <div class="nav-section-label">Account</div>
+  <button class="nav-item" data-view="wallet" onclick="showView('wallet', this)">
+    <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="6" width="18" height="13" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M16 12.5h2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M3 9h18" stroke="currentColor" stroke-width="1.8"/></svg>
+    <span class="nav-label">Wallet</span>
+  </button>
+  <button class="nav-item" data-view="profile" onclick="showView('profile', this)">
+    <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.8"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+    <span class="nav-label">Profile</span>
+  </button>
+
+  <div class="sidebar-footer">
+    <button class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="nav-label">Log out</span>
+    </button>
+  </div>
+</nav>
+
+<div class="main">
+  <div class="topbar">
+    <div class="search-wrap">
+      <input class="search-input" placeholder="Search courses, invoices, appeals...">
+      <select class="module-select">
+        <option>All Modules</option>
+        <option>Courses</option>
+        <option>Transcript</option>
+        <option>Wallet</option>
+      </select>
+      <button class="search-btn">Search</button>
+    </div>
+    <div class="topbar-right">
+      <button class="icon-btn" onclick="showView('wallet', document.querySelector('[data-view=wallet]'))" title="Wallet">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none"><rect x="3" y="6" width="18" height="13" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M3 9h18" stroke="currentColor" stroke-width="1.8"/></svg>
+      </button>
+      <button class="icon-btn" title="Notifications">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="dot"></span>
+      </button>
+      <div class="user-chip">
+        <div class="avatar" id="topAvatar">AN</div>
+        <span class="user-name" id="topName">Amara Ngu</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="breadcrumb" id="breadcrumb"><b>Home</b> &nbsp;›&nbsp; Dashboard</div>
+
+  <div class="content">
+
+    <!-- ========== DASHBOARD ========== -->
+    <div class="view active" id="view-dashboard">
+      <div class="dash-grid">
+        <div>
+          <div class="stat-row">
+            <div class="stat-card brand-fill">
+              <div class="stat-label">CUMULATIVE GPA</div>
+              <div><span class="stat-number" id="gpaNumber">0.00</span><span class="stat-unit"> / 4.0</span></div>
+              <div class="stat-note">Based on 4 completed semesters</div>
+            </div>
+            <div class="ring-card">
+              <div class="ring-wrap">
+                <svg width="84" height="84" viewBox="0 0 108 108">
+                  <circle cx="54" cy="54" r="46" fill="none" stroke="#EEF0F5" stroke-width="10"/>
+                  <circle id="attendanceRing" cx="54" cy="54" r="46" fill="none" stroke="#2563EB" stroke-width="10" stroke-linecap="round" stroke-dasharray="289" stroke-dashoffset="289" transform="rotate(-90 54 54)"/>
+                </svg>
+                <div class="ring-percent" id="attendancePercent">0%</div>
+              </div>
+              <div>
+                <div class="ring-info-label">Attendance</div>
+                <div class="ring-info-title">This semester</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section-title">My Courses — Fall 2026</div>
+          <div class="course-grid" id="dashboardCourseGrid"></div>
+        </div>
+
+        <div>
+          <div class="widget">
+            <div class="widget-title">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9" stroke="currentColor" stroke-width="1.8"/></svg>
+              Announcements
+            </div>
+            <div class="announcement"><div class="announcement-title">Portal maintenance</div><div class="announcement-meta">28 Sept · Registrar's Office</div></div>
+            <div class="announcement"><div class="announcement-title">Fall 2026 exam timetable posted</div><div class="announcement-meta">24 Sept · Academic Affairs</div></div>
+            <div class="announcement"><div class="announcement-title">Grade appeal deadline: Oct 10</div><div class="announcement-meta">20 Sept · Dean's Office</div></div>
+          </div>
+
+          <div class="widget">
+            <div class="widget-title">
+              <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" stroke-width="1.8"/></svg>
+              Calendar
+            </div>
+            <table class="mini-cal" id="miniCal"></table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== REGISTER FOR COURSES ========== -->
+    <div class="view" id="view-register">
+      <div class="panel">
+        <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:4px;">
+          <div>
+            <div class="panel-title" style="margin-bottom:0;">Available Courses</div>
+            <div class="panel-sub" style="margin-bottom:0;">Select a course to enroll. Prerequisites are checked automatically. Courses you've already taken or are already enrolled in this semester are hidden.</div>
+          </div>
+          <div style="min-width:180px;">
+            <label>Semester</label>
+            <select id="semesterSelect" onchange="renderRegister()">
+              <option value="fall2026">Fall 2026 (current)</option>
+              <option value="spring2027">Spring 2027</option>
+            </select>
+          </div>
+        </div>
+        <table style="margin-top:14px;">
+          <thead><tr><th>Code</th><th>Title</th><th>Credits</th><th>Prerequisites</th><th></th></tr></thead>
+          <tbody id="registerRows"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ========== MY COURSES ========== -->
+    <div class="view" id="view-courses">
+      <div class="panel">
+        <div class="panel-title">Enrolled — Fall 2026</div>
+        <div class="panel-sub">4 courses, 14 credit hours</div>
+        <div class="course-grid" id="coursesGrid"></div>
+      </div>
+    </div>
+
+    <!-- ========== TIMETABLE ========== -->
+    <div class="view" id="view-timetable">
+      <div class="panel">
+        <div class="panel-title">Weekly Timetable — Fall 2026</div>
+        <div class="panel-sub">Built from your enrolled courses' class sessions</div>
+        <div class="tt-wrap">
+          <div class="tt-grid" id="ttGrid"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== TRANSCRIPT ========== -->
+    <div class="view" id="view-transcript">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <div class="panel-sub" style="margin-bottom:0;">Full academic record, grouped by semester. Appeal a published grade from its row.</div>
+        <button class="btn btn-outline" onclick="exportTranscript()">Export as PDF</button>
+      </div>
+      <div id="transcriptTerms"></div>
+      <div class="cumulative-bar"><div class="label">Cumulative GPA</div><div class="value" id="cumulativeGpaValue">0.00</div></div>
+    </div>
+
+    <!-- ========== WALLET ========== -->
+    <div class="view" id="view-wallet">
+      <div class="stat-card brand-fill wallet-hero" style="margin-bottom:16px;">
+        <div>
+          <div class="wallet-balance-label">Wallet Balance</div>
+          <div class="wallet-balance-value">XAF 45,000</div>
+        </div>
+        <div class="wallet-actions">
+          <button class="btn" style="background:#fff; color:var(--brand-text);">Top Up</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">Fee Receipts & Invoices</div>
+        <div class="panel-sub">Payments and outstanding invoices tied to your account</div>
+        <table>
+          <thead><tr><th>Description</th><th>Category</th><th>Amount</th><th>Date</th><th>Status</th><th></th></tr></thead>
+          <tbody id="walletRows"></tbody>
+        </table>
+      </div>
+      <div class="wallet-note">This page shows wallet and invoice data owned by the Finance service — connect it to Finance's real endpoints once available.</div>
+    </div>
+
+    <!-- ========== PROFILE ========== -->
+    <div class="view" id="view-profile">
+      <div class="panel" style="padding:0; overflow:hidden;">
+        <div class="profile-card">
+          <div class="profile-avatar" id="profileAvatar">AN</div>
+          <div><div class="profile-name" id="profileName">Amara Ngu</div><div class="profile-role">Computer Science — Year 3</div></div>
+        </div>
+        <div class="detail-grid">
+          <div><div class="detail-label">Matriculation number</div><div class="detail-value" id="profileMatric">ICTU20240873</div></div>
+          <div><div class="detail-label">Program</div><div class="detail-value">B.Sc. Computer Science</div></div>
+          <div><div class="detail-label">Enrolled since</div><div class="detail-value" id="profileEnrolled">September 2024</div></div>
+          <div><div class="detail-label">Current semester</div><div class="detail-value">Fall 2026 (5th)</div></div>
+          <div><div class="detail-label">Email</div><div class="detail-value">amara.ngu@myuni.edu</div></div>
+          <div><div class="detail-label">Status</div><div class="detail-value"><span class="badge badge-green">Registered</span></div></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   FAKE DATA — matches the real Academic Service contract shape.
+   Wallet data matches what Finance's service is expected to return.
+   ============================================================ */
+
+const student = {
+  name: "Amara Ngu", matricNumber: "ICTU20240873", program: "B.Sc. Computer Science",
+  enrolledDate: "2024-09-01", currentSemesterLabel: "Fall 2026",
+  cumulativeGpa: 3.42, attendancePercent: 87
+};
+
+const currentCourses = [
+  { code: "CS301", title: "Database Systems", instructor: "Dr. Ndifor", credits: 4, complete: 62, banner: "b1" },
+  { code: "CS310", title: "Operating Systems", instructor: "Dr. Beyala", credits: 4, complete: 40, banner: "b2" },
+  { code: "CS220", title: "Discrete Mathematics II", instructor: "Prof. Achu", credits: 3, complete: 75, banner: "b3" },
+  { code: "CS340", title: "Software Engineering", instructor: "Dr. Ndifor", credits: 3, complete: 0, banner: "b4" }
+];
+
+/* Which courses are offered in which semester — your real catalog has no such field yet
+   (documented assumption: every catalog course is treated as offered every semester).
+   alreadyEnrolledCodes / alreadyTakenCodes simulate what the Register page must exclude. */
+const alreadyEnrolledOrTakenCodes = ["CS301", "CS220"]; // from currentCourses / transcript
+
+const courseCatalog = [
+  { code: "CS301", title: "Database Systems", credits: 4, prereqs: ["CS201"], missing: [], semesters: ["fall2026"] },
+  { code: "CS410", title: "Distributed Systems", credits: 4, prereqs: ["CS301", "CS310"], missing: ["CS310 — Operating Systems"], semesters: ["fall2026", "spring2027"] },
+  { code: "CS220", title: "Discrete Mathematics II", credits: 3, prereqs: ["CS120"], missing: [], semesters: ["fall2026"] },
+  { code: "CS350", title: "Computer Networks", credits: 4, prereqs: ["CS210"], missing: [], semesters: ["spring2027"] },
+  { code: "CS330", title: "Human-Computer Interaction", credits: 3, prereqs: [], missing: [], semesters: ["fall2026", "spring2027"] }
+];
+
+const transcript = [
+  { label: "Fall 2026", gpa: 3.5, courses: [
+    { id: 1, code: "CS301", title: "Database Systems", grade: "A", points: 4.0, appeal: null },
+    { id: 2, code: "CS220", title: "Discrete Mathematics II", grade: "B+", points: 3.5, appeal: "pending" }
+  ]},
+  { label: "Spring 2026", gpa: 3.3, courses: [
+    { id: 3, code: "CS201", title: "Data Structures", grade: "A-", points: 3.7, appeal: null },
+    { id: 4, code: "CS210", title: "Computer Architecture", grade: "B", points: 3.0, appeal: null }
+  ]}
+];
+
+const walletTransactions = [
+  { desc: "Tuition — Fall 2026", category: "Tuition", amount: "XAF 150,000", date: "2026-09-15", status: "unpaid" },
+  { desc: "Registration Fee", category: "Registration", amount: "XAF 25,000", date: "2026-08-20", status: "paid" },
+  { desc: "Tuition — Spring 2026", category: "Tuition", amount: "XAF 150,000", date: "2026-02-10", status: "paid" }
+];
+
+const timetableSessions = [
+  { day: 1, start: 8, end: 10, code: "CS301", room: "A2", banner: "b1" },
+  { day: 1, start: 13, end: 14, code: "CS220", room: "B1", banner: "b3" },
+  { day: 2, start: 10, end: 12, code: "CS310", room: "C3", banner: "b2" },
+  { day: 3, start: 8, end: 10, code: "CS301", room: "A2", banner: "b1" },
+  { day: 3, start: 14, end: 16, code: "CS340", room: "A1", banner: "b4" },
+  { day: 4, start: 10, end: 12, code: "CS310", room: "C3", banner: "b2" },
+  { day: 5, start: 9, end: 11, code: "CS220", room: "B1", banner: "b3" }
+];
+
+/* ============================================================ RENDER ============================================================ */
+
+function initials(name) { return name.split(" ").map(p => p[0]).join("").toUpperCase(); }
+document.getElementById("topAvatar").textContent = initials(student.name);
+document.getElementById("topName").textContent = student.name;
+document.getElementById("profileAvatar").textContent = initials(student.name);
+document.getElementById("profileName").textContent = student.name;
+document.getElementById("profileMatric").textContent = student.matricNumber;
+document.getElementById("profileEnrolled").textContent = new Date(student.enrolledDate).toLocaleDateString(undefined, { month: "long", year: "numeric" });
+
+(function animateGpa() {
+  const el = document.getElementById("gpaNumber"); let current = 0; const target = student.cumulativeGpa; const step = target / 30;
+  const iv = setInterval(() => { current += step; if (current >= target) { current = target; clearInterval(iv); } el.textContent = current.toFixed(2); }, 16);
+})();
+
+(function drawRing() {
+  const circumference = 289; const offset = circumference - (student.attendancePercent / 100) * circumference;
+  const ring = document.getElementById("attendanceRing");
+  ring.style.transition = "stroke-dashoffset 0.8s ease";
+  setTimeout(() => { ring.style.strokeDashoffset = offset; }, 100);
+  document.getElementById("attendancePercent").textContent = student.attendancePercent + "%";
+  if (student.attendancePercent < 75) ring.setAttribute("stroke", "#DC2626");
+})();
+
+function courseCard(c) {
+  return `<div class="course-card">
+    <div class="course-banner ${c.banner}">
+      <div class="progress-pill">${c.complete}% complete</div>
+      <div class="progress-strip"><div class="progress-strip-fill" style="width:${c.complete}%"></div></div>
+    </div>
+    <div class="course-card-body">
+      <div class="course-card-tag">FA26-Bachelors</div>
+      <div class="course-card-title">${c.code} — ${c.title}</div>
+      <div class="course-card-meta">${c.instructor} · ${c.credits} credits</div>
+    </div>
+  </div>`;
+}
+document.getElementById("dashboardCourseGrid").innerHTML = currentCourses.map(courseCard).join("");
+document.getElementById("coursesGrid").innerHTML = currentCourses.map(courseCard).join("");
+
+let availableCourses = [];
+
+function renderRegister() {
+  const semester = document.getElementById("semesterSelect").value;
+  availableCourses = courseCatalog.filter(c =>
+    c.semesters.includes(semester) && !alreadyEnrolledOrTakenCodes.includes(c.code)
+  );
+
+  const tbody = document.getElementById("registerRows");
+  tbody.innerHTML = "";
+
+  if (availableCourses.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" style="color:var(--text-muted);">No courses available to register for this semester.</td></tr>`;
+    return;
+  }
+
+  availableCourses.forEach((c, i) => {
+    const row = document.createElement("tr");
+    row.innerHTML = `<td>${c.code}</td><td>${c.title}</td><td>${c.credits}</td><td>${c.prereqs.join(", ") || "—"}</td>
+      <td><button class="btn btn-primary btn-sm" onclick="tryEnroll(${i}, this)">Enroll</button></td>`;
+    tbody.appendChild(row);
+    const msgRow = document.createElement("tr");
+    msgRow.innerHTML = `<td colspan="5" style="padding-top:0;"><div class="prereq-warning" id="msg-${i}" style="display:none;">Missing prerequisite: ${c.missing.join(", ")}</div><div class="enroll-success" id="ok-${i}" style="display:none;">Enrolled successfully.</div></td>`;
+    tbody.appendChild(msgRow);
+  });
+}
+renderRegister();
+
+function tryEnroll(i, btn) {
+  const c = availableCourses[i];
+  if (c.missing.length) {
+    document.getElementById("msg-" + i).style.display = "block";
+  } else {
+    document.getElementById("ok-" + i).style.display = "block";
+    btn.disabled = true; btn.textContent = "Enrolled";
+  }
+}
+
+(function renderTimetable() {
+  const grid = document.getElementById("ttGrid");
+  const days = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+  grid.innerHTML += `<div class="tt-corner"></div>` + days.map(d => `<div class="tt-day-head">${d}</div>`).join("");
+  for (let h = 8; h <= 17; h++) {
+    grid.innerHTML += `<div class="tt-time">${h}:00</div>`;
+    for (let d = 1; d <= 5; d++) {
+      const session = timetableSessions.find(s => s.day === d && s.start === h);
+      if (session) {
+        const span = session.end - session.start;
+        grid.innerHTML += `<div class="tt-cell" style="grid-row: span 1;">
+          <div class="tt-block course-banner ${session.banner}" style="height:${span*46-6}px;">
+            ${session.code}<small>Room ${session.room}</small>
+          </div>
+        </div>`;
+      } else if (!timetableSessions.some(s => s.day === d && s.start < h && s.end > h)) {
+        grid.innerHTML += `<div class="tt-cell"></div>`;
+      }
+    }
+  }
+})();
+
+(function renderTranscript() {
+  const wrap = document.getElementById("transcriptTerms");
+  transcript.forEach((term, idx) => {
+    const div = document.createElement("div");
+    div.className = "term";
+    div.innerHTML = `
+      <div class="term-header" onclick="toggleTerm(${idx})">
+        <div><div class="term-name">${term.label}</div><div class="term-meta">${term.courses.length} courses</div></div>
+        <div style="display:flex; align-items:center; gap:14px;"><div class="term-gpa">${term.gpa.toFixed(2)} GPA</div><span class="chevron">›</span></div>
+      </div>
+      <div class="term-body">
+        <table>
+          <thead><tr><th>Code</th><th>Title</th><th>Grade</th><th>Points</th><th>Appeal</th></tr></thead>
+          <tbody>
+            ${term.courses.map(c => `<tr>
+              <td>${c.code}</td><td>${c.title}</td><td>${c.grade}</td><td>${c.points.toFixed(1)}</td>
+              <td>${appealCell(c)}</td>
+            </tr>
+            <tr id="appeal-row-${c.id}" style="display:none;"><td colspan="5" style="padding-top:0; border-bottom:none;">
+              <div class="appeal-form" id="appeal-form-${c.id}">
+                <label>Reason for appeal</label>
+                <textarea placeholder="Explain why you believe this grade should be reviewed..."></textarea>
+                <button class="btn btn-primary btn-sm" onclick="submitAppeal(${c.id})">Submit Appeal</button>
+              </div>
+            </td></tr>`).join("")}
+          </tbody>
+        </table>
+      </div>`;
+    wrap.appendChild(div);
+  });
+  document.getElementById("cumulativeGpaValue").textContent = student.cumulativeGpa.toFixed(2);
+})();
+
+function appealCell(c) {
+  if (c.appeal === "pending") return '<span class="badge badge-amber">Pending</span>';
+  if (c.appeal === "under_review") return '<span class="badge badge-blue">Under review</span>';
+  if (c.appeal === "approved") return '<span class="badge badge-green">Approved</span>';
+  if (c.appeal === "rejected") return '<span class="badge badge-red">Rejected</span>';
+  return `<button class="appeal-link" onclick="toggleAppealForm(${c.id})">Appeal</button>`;
+}
+
+function toggleAppealForm(id) {
+  const row = document.getElementById("appeal-row-" + id);
+  row.style.display = row.style.display === "none" ? "table-row" : "none";
+}
+
+function submitAppeal(id) {
+  document.getElementById("appeal-row-" + id).style.display = "none";
+  alert("TODO: POST /api/v1/grades/" + id + "/appeals — this demo just shows the flow.");
+}
+
+function toggleTerm(idx) { document.querySelectorAll(".term")[idx].classList.toggle("open"); }
+function exportTranscript() { alert("TODO: wire to GET /api/v1/students/:id/transcript/pdf"); }
+
+(function renderWallet() {
+  const tbody = document.getElementById("walletRows");
+  walletTransactions.forEach(t => {
+    const badge = t.status === "paid" ? '<span class="badge badge-green">Paid</span>' : '<span class="badge badge-red">Unpaid</span>';
+    const action = t.status === "paid" ? '<button class="btn btn-outline btn-sm">View</button>' : '<button class="btn btn-primary btn-sm">Pay</button>';
+    tbody.innerHTML += `<tr><td>${t.desc}</td><td>${t.category}</td><td>${t.amount}</td><td>${t.date}</td><td>${badge}</td><td>${action}</td></tr>`;
+  });
+})();
+
+(function renderMiniCal() {
+  const cal = document.getElementById("miniCal");
+  const today = 27; // demo "today"
+  const daysInMonth = 30; const startOffset = 2; // Sept 2026 starts on Tue
+  let html = "<tr>" + ["S","M","T","W","T","F","S"].map(d => `<th>${d}</th>`).join("") + "</tr><tr>";
+  for (let i = 0; i < startOffset; i++) html += "<td></td>";
+  let col = startOffset;
+  for (let day = 1; day <= daysInMonth; day++) {
+    if (col === 7) { html += "</tr><tr>"; col = 0; }
+    html += `<td class="${day === today ? 'today' : ''}">${day}</td>`;
+    col++;
+  }
+  html += "</tr>";
+  cal.innerHTML = html;
+})();
+
+/* ============================================================ NAV ============================================================ */
+
+const titles = {
+  dashboard: "Dashboard", register: "Register for Courses", courses: "My Courses",
+  timetable: "Timetable", transcript: "Transcript", wallet: "Wallet", profile: "Profile"
+};
+
+function showView(name, btn) {
+  document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+  document.getElementById("view-" + name).classList.add("active");
+  document.querySelectorAll(".nav-item[data-view]").forEach(n => n.classList.remove("active"));
+  btn.classList.add("active");
+  document.getElementById("breadcrumb").innerHTML = `<b>Home</b> &nbsp;›&nbsp; ${titles[name]}`;
+}
+
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('collapsed');
+  localStorage.setItem('sidebarCollapsed', document.getElementById('sidebar').classList.contains('collapsed'));
+}
+if (localStorage.getItem('sidebarCollapsed') === 'true') document.getElementById('sidebar').classList.add('collapsed');
+
+/* REAL API — once endpoints exist, replace the fake-data blocks above with apiCall() results.
+   const GATEWAY_URL = 'http://localhost:3000';
+   async function apiCall(path) {
+     const token = localStorage.getItem('token');
+     const res = await fetch(GATEWAY_URL + path, { headers: { 'Authorization': 'Bearer ' + token } });
+     if (!res.ok) throw new Error('Request failed');
+     return res.json();
+   } */
+</script>
+</body>
+</html>
