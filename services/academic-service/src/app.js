@@ -55,6 +55,15 @@ app.use('/api/v1', transcriptRoutes);
 const openApiSpec = YAML.load(path.join(__dirname, 'docs', 'openapi.yaml'));
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openApiSpec, { customSiteTitle: 'Academic Service API' }));
 
+// The same spec at the paths from the project convention (CLAUDE.md): Swagger UI at
+// /api/v1/academic/docs and the raw JSON at /api/v1/academic/openapi.json. These sit under the
+// gateway's /api/v1/academic prefix, so they're reachable through the gateway; /api-docs and
+// /openapi.json are the direct-to-service equivalents.
+// serveFiles (not serve) gives this mount its own copy of Swagger UI's setup script, which is
+// the library's supported way to host more than one UI instance in one app.
+app.use('/api/v1/academic/docs', swaggerUi.serveFiles(openApiSpec), swaggerUi.setup(openApiSpec, { customSiteTitle: 'Academic Service API' }));
+app.get(['/api/v1/academic/openapi.json', '/openapi.json'], (req, res) => res.json(openApiSpec));
+
 // Error handler for errors thrown outside our controllers' try/catch, most commonly
 // malformed JSON caught by express.json(). Without this, Express replies with an HTML
 // error page; clients of a JSON API should always get JSON back.
