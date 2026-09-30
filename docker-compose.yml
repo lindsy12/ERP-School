@@ -5,10 +5,14 @@ services:
   rabbitmq:
     image: rabbitmq:3-management
     container_name: rabbitmq
-    ports:
-      - "15672:15672"   # management UI (http://localhost:15672 — guest/guest by default)
+    # Only the gateway publishes a port. To open the management UI (http://localhost:15672,
+    # guest/guest) on your own machine, put this in docker-compose.override.yml (gitignored):
+    #   services:
+    #     rabbitmq:
+    #       ports: ["127.0.0.1:15672:15672"]
     expose:
       - "5672"           # AMQP port, internal only
+      - "15672"          # management UI, internal only
     healthcheck:
       test: ["CMD", "rabbitmqctl", "status"]
       interval: 10s
@@ -26,6 +30,12 @@ services:
       - "3306"
     volumes:
       - auth-db-data:/var/lib/mysql
+    healthcheck:
+      # 127.0.0.1 (TCP) only answers once MySQL has finished its first-time setup
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   academic-db:
     image: mysql:8
@@ -57,8 +67,17 @@ services:
       MYSQL_DATABASE: hr_db
     expose:
       - "3306"
+    ports:
+      # Published to the host (unlike the other db services) so hr-service's
+      # test suite can run from outside docker via `npm test` — see its README.
+      - "3307:3306"
     volumes:
       - hr-db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   notification-db:
     image: mysql:8
@@ -75,14 +94,15 @@ services:
   # NOTE: each Dockerfile below doesn't exist yet — add one per service as you build it.
   # Uncomment each block once that service has a working Dockerfile.
 
-  # auth-service:
-  #   build: ./services/auth-service
-  #   container_name: auth-service
-  #   env_file: ./services/auth-service/.env
-  #   depends_on:
-  #     - auth-db
-  #   expose:
-  #     - "4001"
+  auth-service:
+    build: ./services/auth-service
+    container_name: auth-service
+    env_file: ./services/auth-service/.env
+    depends_on:
+      auth-db:
+        condition: service_healthy   # wait until MySQL is actually accepting connections
+    expose:
+      - "4001"
 
   # academic-service:
   #   build: ./services/academic-service
@@ -104,15 +124,17 @@ services:
   #   expose:
   #     - "4003"
 
-  # hr-service:
-  #   build: ./services/hr-service
-  #   container_name: hr-service
-  #   env_file: ./services/hr-service/.env
-  #   depends_on:
-  #     - hr-db
-  #     - rabbitmq
-  #   expose:
-  #     - "4004"
+  hr-service:
+    build: ./services/hr-service
+    container_name: hr-service
+    env_file: ./services/hr-service/.env
+    depends_on:
+      hr-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    expose:
+      - "4004"
 
   # notification-service:
   #   build: ./services/notification-service
@@ -124,17 +146,26 @@ services:
   #   expose:
   #     - "4005"
 
-  # gateway:
-  #   build: ./gateway
-  #   container_name: gateway
-  #   env_file: ./gateway/.env
-  #   depends_on:
-  #     - auth-service
-  #     - academic-service
-  #     - finance-service
-  #     - hr-service
-  #   ports:
-  #     - "3000:3000"   # this is the ONLY service exposed to the host — everything goes through it
+  gateway:
+    build: ./gateway
+    container_name: gateway
+    env_file: ./gateway/.env
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      # Compose refuses to start if depends_on names a service that isn't defined, so uncomment
+      # each line below at the same time as that service's block above. service_healthy needs a
+      # HEALTHCHECK in that service's Dockerfile (copy auth-service's); otherwise use service_started.
+      # academic-service:
+      #   condition: service_healthy
+      # finance-service:
+      #   condition: service_healthy
+      hr-service:
+        condition: service_healthy
+      # notification-service:
+      #   condition: service_healthy
+    ports:
+      - "3000:3000"   # the ONLY application port published to the host; everything goes through it
 
 volumes:
   auth-db-data:

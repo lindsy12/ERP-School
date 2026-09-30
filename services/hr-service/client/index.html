@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HR · School ERP</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <!-- Sign-in -->
+  <div id="login" class="login-wrap" hidden>
+    <div class="card login-card">
+      <h1>School ERP · HR</h1>
+      <p class="muted">Sign in to manage employees, attendance, leave and payroll.</p>
+      <div id="login-msg" class="notice warn" role="alert" hidden></div>
+      <form id="login-form">
+        <div class="field"><label for="tenant">School (tenant) ID</label><input id="tenant" name="tenant" autocomplete="organization" required></div>
+        <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" autocomplete="username" required></div>
+        <div class="field"><label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password" required></div>
+        <button id="login-submit" class="btn" type="submit">Sign in</button>
+      </form>
+      <details class="token">
+        <summary>Use an access token instead</summary>
+        <form id="token-form">
+          <div class="field">
+            <label for="token">Access token (JWT)</label>
+            <textarea id="token" name="token" spellcheck="false" placeholder="eyJhbGciOi…"></textarea>
+            <span class="hint">Developers: <code>npm run dev-token -- ADMIN</code></span>
+          </div>
+          <button class="btn secondary" type="submit">Continue</button>
+        </form>
+      </details>
+    </div>
+  </div>
+
+  <!-- App shell -->
+  <div id="shell" class="shell" hidden>
+    <aside class="side">
+      <div class="brand"><span class="logo" aria-hidden="true">HR</span><span>School ERP<small>Administration &amp; HR</small></span></div>
+      <nav id="nav" class="nav" aria-label="HR sections"></nav>
+      <div class="who"><strong id="who"></strong><button id="logout" class="btn secondary sm" type="button">Sign out</button></div>
+    </aside>
+    <main id="view" class="main" tabindex="-1"></main>
+  </div>
+
+  <div id="toasts" aria-live="polite"></div>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
