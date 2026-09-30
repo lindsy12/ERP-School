@@ -22,6 +22,19 @@ jobs:
           - services/hr-service
           - services/notification-service
           - gateway
+    services:
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ROOT_PASSWORD: rootpass
+          MYSQL_DATABASE: academic_db_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -prootpass"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -40,6 +53,12 @@ jobs:
       - name: Run tests
         working-directory: ${{ matrix.service }}
         run: npm test
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_USER: root
+          DB_PASSWORD: rootpass
+          TEST_DB_NAME: academic_db_test
 
   build:
     needs: test
