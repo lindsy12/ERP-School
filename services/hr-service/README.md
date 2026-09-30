@@ -80,11 +80,11 @@ Tests run against a **real MySQL** instance (not an in-memory fake) — this nee
 every machine, and SQLite's SQL semantics diverge from MySQL's in ways that can
 mask real bugs (ENUM handling, GROUP BY strictness, etc).
 
-1. `docker compose up -d hr-db` (publishes MySQL on host port `3307`, see root `docker-compose.yml`).
+1. `docker compose up -d hr-db` (publishes MySQL on host port `3309`, see root `docker-compose.yml`).
 2. Copy `.env.example` to `.env.test` and set:
    ```
    DB_HOST=127.0.0.1
-   DB_PORT=3307
+   DB_PORT=3309
    DB_USER=root
    DB_PASSWORD=rootpass
    DB_NAME=hr_db_test

@@ -77,6 +77,8 @@ services:
       MYSQL_DATABASE: hr_db
     expose:
       - "3306"
+    ports:
+      - "3309:3306"   # for MySQL tools / hr-service's `npm test` on your machine (see its README)
     volumes:
       - hr-db-data:/var/lib/mysql
     healthcheck:
