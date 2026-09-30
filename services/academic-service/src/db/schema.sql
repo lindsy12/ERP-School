@@ -253,3 +253,44 @@ CREATE TABLE IF NOT EXISTS exams (
     FOREIGN KEY (semester_id) REFERENCES semesters (id)
     ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- Grade appeals
+-- ============================================================
+
+-- A student's request to review one published grade.
+-- Lifecycle: pending -> under_review -> resolved_approved | resolved_rejected (both final).
+--
+-- At most ONE open appeal (pending or under_review) per grade, enforced by the database:
+-- open_grade_id is a generated column that equals grade_id while the appeal is open and NULL
+-- once it's resolved. A UNIQUE index allows any number of NULLs, so resolved appeals don't
+-- count, but two open appeals for the same grade are rejected, even if two requests race.
+--
+-- original_grade_letter / original_grade_points snapshot the grade when the appeal is filed.
+-- An approved appeal can overwrite the grade row, and this keeps a record of what it was.
+CREATE TABLE IF NOT EXISTS grade_appeals (
+  id                     INT UNSIGNED  NOT NULL AUTO_INCREMENT,
+  grade_id               INT UNSIGNED  NOT NULL,
+  student_id             INT UNSIGNED  NOT NULL,
+  reason                 TEXT          NOT NULL,
+  status                 ENUM('pending','under_review','resolved_approved','resolved_rejected')
+                                       NOT NULL DEFAULT 'pending',
+  instructor_response    TEXT          NULL,
+  original_grade_letter  ENUM('A','B','C','D','F') NOT NULL,
+  original_grade_points  DECIMAL(3,2)  NOT NULL,
+  created_at             TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  resolved_at            TIMESTAMP     NULL DEFAULT NULL,
+  open_grade_id          INT UNSIGNED
+    AS (IF(status IN ('pending','under_review'), grade_id, NULL)) STORED,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_one_open_appeal_per_grade (open_grade_id),
+  KEY idx_appeals_grade_id (grade_id),
+  KEY idx_appeals_student_id (student_id),
+  KEY idx_appeals_status (status),
+  CONSTRAINT fk_appeals_grade
+    FOREIGN KEY (grade_id) REFERENCES grades (id)
+    ON DELETE RESTRICT,
+  CONSTRAINT fk_appeals_student
+    FOREIGN KEY (student_id) REFERENCES students (id)
+    ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
