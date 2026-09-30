@@ -94,6 +94,21 @@ docker compose up --build
 See `docker-compose.yml` for ports and service names. Copy `.env.example` to `.env` in each service
 folder and fill in real values before running — `.env` files are gitignored on purpose.
 
+Then:
+
+1. First time only, create the Super Admin: fill `SEED_*` in `services/auth-service/.env`, then
+   `docker compose exec auth-service npm run seed`.
+2. Optional demo data for Academics: `docker compose exec academic-service npm run seed`.
+3. Open http://localhost:3000, sign in, and pick a module from the home page: Academics, Finance,
+   Administration & HR, Notifications. `http://localhost:3000/health` shows every service's status.
+
+Everything goes through the gateway on port 3000; no other service is published. If another project
+already uses RabbitMQ's port 15672, put `RABBITMQ_UI_PORT=15673` in a `.env` file next to `docker-compose.yml`.
+
+To show the event flow: enrol a student (`POST /api/v1/academic/enrollments`, e.g. from Swagger or
+curl). Finance creates the tuition invoice (`academic.student.enrolled`), and Notifications shows
+"Student enrolled" and "Invoice created"; recording a payment in Finance adds a receipt notification.
+
 ## Docs
 
 - `docs/srs.md` — Software Requirements Specification

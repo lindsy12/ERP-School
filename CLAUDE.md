@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project state
 
-School ERP built as microservices for the SEN4121 final exam (team of 5). Mostly a **scaffold**: only `services/auth-service` has code so far (Express 5 + mysql2 + bcryptjs + jsonwebtoken + Jest/Supertest; `POST /api/v1/auth/login`, `GET /api/v1/auth/me`, `GET /health`; SQL migrations in `src/db/migrations/` run with `npm run migrate`, first admin via `npm run seed`). The other services have no `package.json`, `src/`, or `Dockerfile` yet, their compose blocks are commented out, and their API contract files in `docs/api-contracts/` are empty templates. When adding a service's code, also add its `Dockerfile`, uncomment its compose block, and make sure `npm test` works there (CI runs it).
+School ERP built as microservices for the SEN4121 final exam (team of 5). All six parts have code, a `Dockerfile`, a compose block and a `npm test` that needs no database: `gateway/`, and in `services/` auth (Express 5 + mysql2 + bcryptjs + jsonwebtoken, migrations via `npm run migrate`, first admin via `npm run seed`), academic (plain SQL `src/db/schema.sql` applied at startup, demo data via `npm run seed`), finance (migrations run at startup; React/Vite pages in `client-app/` built into `client/` by the Docker image), hr (Sequelize, `sync()` at startup) and notification (migrations at startup). Every service serves its pages under its web prefix (`/academic/`, `/finance/`, ...) and reads identity from the gateway headers.
 
 ## Commands
 
