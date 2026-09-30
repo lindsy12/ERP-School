@@ -59,10 +59,17 @@ app.use((err, req, res, next) => {
   res.status(err.status || 500).json({ error: 'Internal server error' });
 });
 
-const PORT = process.env.PORT || 4002;
-app.listen(PORT, () => {
-  console.log(`Academic service running on port ${PORT}`);
-  // Connect to RabbitMQ in the background so config problems show up in the logs right away.
-  // It never throws, and the service stays up even if the broker is unreachable.
-  rabbitmq.connect();
-});
+// Only start listening (and connect to RabbitMQ) when this file is run directly, e.g.
+// `node src/app.js`, nodemon or the Dockerfile. When it's require()d, e.g. by the Jest/Supertest
+// tests, it just exports the configured app, so no port is bound and no broker is needed.
+if (require.main === module) {
+  const PORT = process.env.PORT || 4002;
+  app.listen(PORT, () => {
+    console.log(`Academic service running on port ${PORT}`);
+    // Connect to RabbitMQ in the background so config problems show up in the logs right away.
+    // It never throws, and the service stays up even if the broker is unreachable.
+    rabbitmq.connect();
+  });
+}
+
+module.exports = app;
