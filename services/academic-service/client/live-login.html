@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign in (LIVE) — UniERP</title>
+<style>
+  /* Design tokens copied from student-portal.html; keep in sync. */
+  :root {
+    --bg: #F4F6FA; --panel: #FFFFFF; --text: #1B1F27; --text-muted: #7C8194; --border: #E7E9F0;
+    --brand: #2563EB; --brand-dark: #1D4ED8; --brand-soft: #DBEAFE; --brand-text: #1D4ED8;
+    --green: #16A34A; --green-bg: #DCFCE7; --red: #DC2626; --red-bg: #FEE2E2; --amber: #D97706; --amber-bg: #FEF3C7;
+    --live: #EA580C;
+    --radius: 12px;
+    --shadow: 0 1px 2px rgba(20,20,30,0.04), 0 2px 10px rgba(20,20,30,0.05);
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; font-family: 'Inter', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text);
+    min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px 16px; }
+  :focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+  .card { width: 100%; max-width: 420px; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 28px; }
+  .card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+  .brand { display: flex; align-items: center; gap: 9px; font-weight: 800; font-size: 1.05rem; letter-spacing: -0.01em; }
+  .brand-mark { width: 28px; height: 28px; border-radius: 8px; background: linear-gradient(135deg, var(--brand), var(--brand-dark)); display: flex; align-items: center; justify-content: center; color: #fff; font-size: .8rem; font-weight: 800; }
+  .live-badge { display: inline-flex; align-items: center; gap: 6px; background: var(--live); color: #fff; font-size: .68rem; font-weight: 800; letter-spacing: .06em; padding: 4px 9px; border-radius: 20px; }
+  .live-dot { width: 7px; height: 7px; border-radius: 50%; background: #fff; animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .35; } }
+  @media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
+
+  h1 { font-size: 1.32rem; font-weight: 800; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .sub { font-size: .84rem; color: var(--text-muted); margin: 0 0 20px; }
+  label { display: block; font-size: .78rem; font-weight: 600; margin: 0 0 5px; color: var(--text-muted); }
+  input { padding: 9px 11px; border: 1px solid var(--border); border-radius: 8px; font-size: .9rem; font-family: inherit; width: 100%; background: var(--panel); }
+  .field { margin-bottom: 14px; }
+  .hint { font-size: .74rem; color: var(--text-muted); margin-top: 4px; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 15px; border-radius: 9px; border: none; font-size: .88rem; font-weight: 700; cursor: pointer; font-family: inherit; width: 100%; }
+  .btn-primary { background: var(--brand); color: #fff; }
+  .btn-primary:hover { background: var(--brand-dark); }
+  .btn:disabled { opacity: .6; cursor: progress; }
+
+  .alert { font-size: .8rem; padding: 10px 12px; border-radius: 8px; margin: 14px 0 0; line-height: 1.5; word-break: break-word; }
+  .alert-error { background: var(--red-bg); color: var(--red); }
+  .alert-warn { background: var(--amber-bg); color: var(--amber); margin: 0 0 16px; }
+  .alert-info { background: var(--brand-soft); color: var(--brand-text); }
+  .alert ul { margin: 6px 0 0; padding-left: 18px; }
+  .alert code { font-family: ui-monospace, Consolas, monospace; font-size: .76rem; }
+  details { margin-top: 6px; }
+  details pre { white-space: pre-wrap; font-size: .72rem; background: rgba(255,255,255,.6); padding: 6px 8px; border-radius: 6px; margin: 6px 0 0; }
+  .note { margin-top: 18px; font-size: .78rem; color: var(--text-muted); line-height: 1.5; border-top: 1px solid var(--border); padding-top: 14px; }
+  .note a { color: var(--brand-text); }
+</style>
+</head>
+<body>
+
+<main class="card">
+  <div class="card-head">
+    <div class="brand"><div class="brand-mark">U</div><span>UniERP</span></div>
+    <span class="live-badge" title="Live: talks to the real backend through the API gateway"><span class="live-dot"></span>LIVE</span>
+  </div>
+
+  <div class="alert alert-warn" id="originWarning" hidden></div>
+
+  <h1>Sign in</h1>
+  <p class="sub">Real sign-in through the API gateway (Auth service).</p>
+
+  <form id="loginForm" novalidate>
+    <div class="field">
+      <label for="tenantId">School ID</label>
+      <input id="tenantId" name="tenant_id" autocomplete="organization" placeholder="e.g. 3f2c…-…" spellcheck="false">
+      <div class="hint">The UUID from your school's sign-in link (<code>?school=…</code>).</div>
+    </div>
+    <div class="field">
+      <label for="email">Email</label>
+      <input id="email" name="email" type="email" autocomplete="username" placeholder="you@school.edu">
+    </div>
+    <div class="field">
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" autocomplete="current-password">
+    </div>
+    <button class="btn btn-primary" type="submit" id="submitBtn">Sign in</button>
+    <div class="alert alert-error" id="error" role="alert" hidden></div>
+  </form>
+
+  <div class="note">
+    <b>No self-registration:</b> the Auth service has no sign-up endpoint. Accounts are created by a school
+    administrator (Auth <code>POST /api/v1/auth/users</code>). Ask your administrator for your account and school ID.<br>
+    Looking for the designed demo with sample data? Open <a href="student-portal.html">student-portal.html</a>.
+  </div>
+</main>
+
+<script>
+/* ============================================================
+   CONFIG — change this one line if the gateway moves.
+   ============================================================ */
+const GATEWAY_URL = 'http://localhost:3000';
+
+// The gateway only allows browser calls from the origins in its CORS_ORIGIN setting
+// (currently http://localhost:5173). Opened from anywhere else, every request is blocked by the
+// browser, so say so up front instead of failing mysteriously.
+const EXPECTED_ORIGIN = 'http://localhost:5173';
+
+const $ = (id) => document.getElementById(id);
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+if (location.origin !== EXPECTED_ORIGIN) {
+  $('originWarning').hidden = false;
+  $('originWarning').innerHTML = `<b>This page is open from ${esc(location.origin === 'null' ? 'a local file' : location.origin)}.</b>
+    The gateway only accepts browser requests from <code>${EXPECTED_ORIGIN}</code> (its <code>CORS_ORIGIN</code> setting), so sign-in will be blocked.
+    Serve this folder on port 5173, e.g. <code>npx serve -l 5173 services/academic-service/client</code>, and open
+    <code>${EXPECTED_ORIGIN}/live-login.html</code>.`;
+}
+
+// Prefill the school ID from ?school=<uuid> (the Auth service's sign-in link format) or the last one used.
+try {
+  const fromLink = new URLSearchParams(location.search).get('school');
+  $('tenantId').value = fromLink || localStorage.getItem('liveTenantId') || '';
+} catch (e) { /* storage blocked */ }
+
+// Turns any error body into readable HTML. The services use different shapes:
+//   Auth / gateway: { error: { code, message, details: [{ field, message }] } }
+//   Academic:       { error: "message" }
+function describeError(status, body) {
+  const err = body?.error;
+  const code = typeof err === 'object' ? err?.code : undefined;
+  const message = (typeof err === 'object' ? err?.message : err) || body?.message || 'No error message in the response';
+  const details = Array.isArray(err?.details) ? err.details : [];
+  return `<b>HTTP ${esc(status)}${code ? ' · ' + esc(code) : ''}</b>: ${esc(message)}` +
+    (details.length ? `<ul>${details.map(d => `<li><code>${esc(d.field)}</code> ${esc(d.message)}</li>`).join('')}</ul>` : '') +
+    `<details><summary>Raw response</summary><pre>${esc(JSON.stringify(body, null, 2))}</pre></details>`;
+}
+
+// Reads a JWT's payload (no verification; that's the server's job). Returns {} if it can't.
+function decodeJwt(token) {
+  try {
+    const b64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(decodeURIComponent(atob(b64).split('').map(c => '%' + c.charCodeAt(0).toString(16).padStart(2, '0')).join('')));
+  } catch (e) { return {}; }
+}
+
+$('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errorBox = $('error');
+  errorBox.hidden = true;
+  const btn = $('submitBtn');
+  btn.disabled = true; btn.textContent = 'Signing in…';
+
+  // Sent exactly as typed: the Auth service validates it and its errors are shown as-is.
+  const body = { tenant_id: $('tenantId').value.trim(), email: $('email').value.trim(), password: $('password').value };
+  try {
+    const res = await fetch(GATEWAY_URL + '/api/v1/auth/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      errorBox.innerHTML = describeError(res.status, data);
+      errorBox.hidden = false;
+      return;
+    }
+    const claims = decodeJwt(data.access_token);
+    try {
+      localStorage.setItem('liveToken', data.access_token);
+      localStorage.setItem('liveRole', claims.role || '');
+      localStorage.setItem('liveTenantId', body.tenant_id);
+    } catch (storageErr) { /* storage blocked: the dashboard will send us back here */ }
+    location.href = 'live-dashboard.html';
+  } catch (networkErr) {
+    // fetch() only throws when no HTTP response arrived: gateway down, or the browser blocked it (CORS).
+    errorBox.innerHTML = `<b>No response from the gateway</b> at <code>${esc(GATEWAY_URL)}</code>: ${esc(networkErr.message)}.
+      Either the gateway isn't running, or the browser blocked the request because this page's origin
+      (<code>${esc(location.origin)}</code>) isn't in the gateway's <code>CORS_ORIGIN</code>.`;
+    errorBox.hidden = false;
+  } finally {
+    btn.disabled = false; btn.textContent = 'Sign in';
+  }
+});
+</script>
+</body>
+</html>

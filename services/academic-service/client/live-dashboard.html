@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Academic (LIVE) — UniERP</title>
+<style>
+  /* ============================================================
+     SHARED DESIGN SYSTEM — copied from student-portal.html; keep in sync.
+     ============================================================ */
+  :root {
+    --sidebar-w: 226px;
+    --sidebar-w-collapsed: 74px;
+    --bg: #F4F6FA; --panel: #FFFFFF; --text: #1B1F27; --text-muted: #7C8194; --border: #E7E9F0;
+    --brand: #2563EB; --brand-dark: #1D4ED8; --brand-soft: #DBEAFE; --brand-text: #1D4ED8;
+    --green: #16A34A; --green-bg: #DCFCE7;
+    --red: #DC2626; --red-bg: #FEE2E2;
+    --amber: #D97706; --amber-bg: #FEF3C7;
+    --radius: 12px;
+    --shadow: 0 1px 2px rgba(20,20,30,0.04), 0 2px 10px rgba(20,20,30,0.05);
+    --live: #EA580C;
+  }
+  * { box-sizing: border-box; }
+  @media (prefers-reduced-motion: reduce) { *,*::before,*::after{ animation-duration:.01ms!important; transition-duration:.01ms!important; } }
+  body { margin: 0; font-family: 'Inter', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); display: flex; min-height: 100vh; }
+  a { color: inherit; }
+  :focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+  .sidebar { width: var(--sidebar-w); background: var(--panel); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; padding: 18px 12px; position: sticky; top: 0; height: 100vh; transition: width .18s ease; overflow-y: auto; }
+  .sidebar.collapsed { width: var(--sidebar-w-collapsed); }
+  .sidebar-head { display: flex; align-items: center; justify-content: space-between; padding: 2px 8px 18px; margin-bottom: 6px; }
+  .brand { display: flex; align-items: center; gap: 9px; font-weight: 800; font-size: 1.05rem; white-space: nowrap; overflow: hidden; letter-spacing: -0.01em; }
+  .brand-mark { width: 28px; height: 28px; border-radius: 8px; background: linear-gradient(135deg, var(--brand), var(--brand-dark)); flex-shrink: 0; display:flex; align-items:center; justify-content:center; color:#fff; font-size:.8rem; font-weight:800; }
+  .sidebar.collapsed .brand-label { display: none; }
+  .collapse-btn { width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--border); background: var(--panel); cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text-muted); flex-shrink: 0; }
+  .collapse-btn:hover { background: var(--bg); }
+  .sidebar.collapsed .collapse-btn svg { transform: rotate(180deg); }
+  .nav-section-label { font-size: .7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; padding: 14px 12px 6px; }
+  .sidebar.collapsed .nav-section-label { display: none; }
+  .nav-item { display: flex; align-items: center; gap: 11px; padding: 9px 12px; color: var(--text-muted); text-decoration: none; font-size: .89rem; border-radius: 9px; cursor: pointer; background: none; border: none; width: 100%; text-align: left; font-family: inherit; margin-bottom: 1px; white-space: nowrap; overflow: hidden; }
+  .nav-item svg { flex-shrink: 0; width: 18px; height: 18px; }
+  .nav-item:hover { background: var(--bg); color: var(--text); }
+  .nav-item.active { background: var(--brand-soft); color: var(--brand-text); font-weight: 600; }
+  .sidebar.collapsed .nav-label { display: none; }
+  .sidebar.collapsed .nav-item { justify-content: center; }
+  .sidebar-footer { margin-top: auto; padding-top: 12px; border-top: 1px solid var(--border); }
+
+  .main { flex: 1; min-width: 0; }
+  .topbar { display: flex; align-items: center; gap: 14px; padding: 16px 28px; background: var(--panel); border-bottom: 1px solid var(--border); }
+  .search-wrap { flex: 1; display: flex; gap: 8px; max-width: 560px; }
+  .search-input { flex: 1; padding: 9px 13px; border: 1px solid var(--border); border-radius: 9px; font-size: .87rem; font-family: inherit; background: var(--bg); }
+  .module-select { padding: 9px 11px; border: 1px solid var(--border); border-radius: 9px; font-size: .85rem; font-family: inherit; background: var(--bg); color: var(--text-muted); }
+  .search-btn { padding: 9px 16px; border-radius: 9px; border: none; background: var(--text); color: #fff; font-size: .85rem; font-weight: 600; cursor: pointer; }
+  .topbar-right { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+  .user-chip { display: flex; align-items: center; gap: 8px; padding: 5px 10px 5px 5px; border-radius: 10px; }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--brand-soft); color: var(--brand-text); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: .78rem; flex-shrink: 0; }
+  .user-name { font-size: .85rem; font-weight: 600; white-space: nowrap; }
+  .user-role { font-size: .72rem; color: var(--text-muted); }
+  .breadcrumb { padding: 12px 28px; font-size: .82rem; color: var(--text-muted); background: var(--bg); }
+  .breadcrumb b { color: var(--text); font-weight: 600; }
+  .content { padding: 20px 28px 32px; }
+  .view { display: none; animation: fadeIn .2s ease; }
+  .view.active { display: block; }
+  @keyframes fadeIn { from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:translateY(0);} }
+  .page-heading { display:flex; align-items:center; gap:10px; margin: 2px 0 18px; }
+  .page-heading svg { color: var(--brand); width:22px; height:22px; }
+  .page-heading h1 { font-size: 1.32rem; font-weight: 800; margin: 0; letter-spacing: -0.01em; }
+
+  .course-banner { position: relative; height: 84px; }
+  .course-banner.b1 { background: linear-gradient(135deg,#F472B6,#DB2777); }
+  .course-banner.b2 { background: linear-gradient(135deg,#2DD4BF,#0D9488); }
+  .course-banner.b3 { background: linear-gradient(135deg,#FBBF24,#B45309); }
+  .course-banner.b4 { background: linear-gradient(135deg,#60A5FA,#2563EB); }
+  .course-banner.b5 { background: linear-gradient(135deg,#818CF8,#4F46E5); }
+
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); margin-bottom: 16px; }
+  .panel-title { font-size: .98rem; font-weight: 700; margin: 0 0 4px; }
+  .panel-sub { font-size: .82rem; color: var(--text-muted); margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-size: .72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: .02em; padding: 10px; background: var(--bg); border-bottom: 1px solid var(--border); }
+  th:first-child { border-radius: 8px 0 0 8px; } th:last-child { border-radius: 0 8px 8px 0; }
+  td { padding: 12px 10px; border-bottom: 1px solid var(--border); font-size: .87rem; }
+  tr:last-child td { border-bottom: none; }
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: .74rem; font-weight: 700; }
+  .badge-green { background: var(--green-bg); color: var(--green); }
+  .badge-red { background: var(--red-bg); color: var(--red); }
+  .badge-amber { background: var(--amber-bg); color: var(--amber); }
+  .badge-blue { background: var(--brand-soft); color: var(--brand-text); }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 15px; border-radius: 9px; border: none; font-size: .84rem; font-weight: 700; cursor: pointer; font-family: inherit; }
+  .btn-primary { background: var(--brand); color: #fff; }
+  .btn-primary:hover { background: var(--brand-dark); }
+  .btn-outline { background: var(--panel); border: 1px solid var(--border); color: var(--text); }
+  .btn-outline:hover { border-color: var(--brand); color: var(--brand-text); }
+  .btn-sm { padding: 5px 11px; font-size: .76rem; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  input, select { padding: 8px 11px; border: 1px solid var(--border); border-radius: 8px; font-size: .87rem; font-family: inherit; width: 100%; background: var(--panel); height: 38px; }
+  label { display: block; font-size: .78rem; font-weight: 600; margin-bottom: 5px; color: var(--text-muted); }
+
+  /* ============================================================
+     PAGE-SPECIFIC
+     ============================================================ */
+  [hidden] { display: none !important; }
+  /* Fix inherited from student-portal.html: the global input/select width:100% squashes the search box. */
+  .search-wrap .search-input { width: auto; min-width: 0; height: auto; }
+  .search-wrap .module-select { width: auto; flex: 0 0 auto; height: auto; }
+
+  /* LIVE badge: marks this page as talking to the real backend, unlike the fake-data demo. */
+  .live-badge { display: inline-flex; align-items: center; gap: 6px; background: var(--live); color: #fff; font-size: .68rem; font-weight: 800; letter-spacing: .06em; padding: 5px 10px; border-radius: 20px; white-space: nowrap; }
+  .live-dot { width: 7px; height: 7px; border-radius: 50%; background: #fff; animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .35; } }
+
+  /* Not-yet-connected nav items: visible, clearly disabled, with a tooltip. */
+  .nav-item.disabled { opacity: .45; cursor: not-allowed; position: relative; }
+  .nav-item.disabled:hover { background: none; color: var(--text-muted); }
+  .nav-item.disabled .nav-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .nav-item.disabled .soon { flex-shrink: 0; margin-left: auto; font-size: .62rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; background: var(--bg); border: 1px solid var(--border); border-radius: 20px; padding: 1px 6px; }
+  .sidebar.collapsed .nav-item.disabled .soon { display: none; }
+  .tooltip { position: fixed; z-index: 50; max-width: 240px; background: var(--text); color: #fff; font-size: .74rem; line-height: 1.4; padding: 7px 9px; border-radius: 7px; pointer-events: none; box-shadow: var(--shadow); }
+
+  .alert { font-size: .82rem; padding: 10px 12px; border-radius: 8px; margin-top: 12px; line-height: 1.5; word-break: break-word; }
+  .alert-error { background: var(--red-bg); color: var(--red); }
+  .alert-success { background: var(--green-bg); color: var(--green); }
+  .alert-warn { background: var(--amber-bg); color: var(--amber); }
+  .alert code, .endpoint { font-family: ui-monospace, Consolas, monospace; font-size: .76rem; }
+  .alert details { margin-top: 6px; }
+  .alert pre { white-space: pre-wrap; font-size: .72rem; background: rgba(255,255,255,.6); padding: 6px 8px; border-radius: 6px; margin: 6px 0 0; max-height: 240px; overflow: auto; }
+  .alert ul { margin: 6px 0 0; padding-left: 0; list-style: none; }
+  .endpoint { color: var(--text-muted); background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 2px 7px; }
+
+  .state { padding: 26px 10px; text-align: center; color: var(--text-muted); font-size: .87rem; }
+  .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--brand); border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -3px; margin-right: 8px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .table-wrap { overflow-x: auto; }
+  .course-cell { display: flex; align-items: center; gap: 10px; }
+  .course-swatch { width: 6px; height: 28px; border-radius: 4px; flex-shrink: 0; }
+  .muted { color: var(--text-muted); }
+  .panel-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+  .fetched-at { font-size: .74rem; color: var(--text-muted); }
+  .form-grid { display: grid; grid-template-columns: 2fr 1.1fr 1.1fr .8fr .8fr 1.1fr; gap: 12px; align-items: end; }
+  @media (max-width: 1150px) { .form-grid { grid-template-columns: 1fr 1fr 1fr; } }
+  @media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } }
+  .form-actions { display: flex; align-items: center; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
+  .form-hint { font-size: .78rem; color: var(--text-muted); }
+  .conflict-item { display: flex; align-items: center; gap: 10px; background: var(--panel); color: var(--text); border-radius: 8px; padding: 7px 10px; margin-top: 6px; flex-wrap: wrap; }
+  .conflict-item .time { font-weight: 700; color: var(--red); }
+</style>
+</head>
+<body>
+
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-head">
+    <div class="brand"><div class="brand-mark">U</div><span class="brand-label">UniERP</span></div>
+    <button class="collapse-btn" onclick="toggleSidebar()" title="Collapse sidebar">
+      <svg viewBox="0 0 20 20" fill="none" width="14" height="14"><path d="M12 4l-6 6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+  </div>
+
+  <div class="nav-section-label">Live</div>
+  <button class="nav-item active" data-view="courses" onclick="showView('courses')">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M4 19.5V6a2 2 0 012-2h12a2 2 0 012 2v13.5M4 19.5A2.5 2.5 0 016.5 17H20M4 19.5A2.5 2.5 0 006.5 22H20v-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span class="nav-label">Courses</span>
+  </button>
+  <button class="nav-item" data-view="programs" onclick="showView('programs')">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M12 3l9 5-9 5-9-5 9-5z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M6 10.5V16c0 1.7 2.7 3 6 3s6-1.3 6-3v-5.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+    <span class="nav-label">Programs</span>
+  </button>
+  <button class="nav-item" data-view="exams" onclick="showView('exams')">
+    <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M3 10h18M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M9 15l2 2 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span class="nav-label">Exams</span>
+  </button>
+
+  <div class="nav-section-label">Not yet connected</div>
+  <div id="disabledNav"></div>
+
+  <div class="sidebar-footer">
+    <button class="nav-item" onclick="logout()">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="nav-label">Log out</span>
+    </button>
+  </div>
+</nav>
+
+<div class="main">
+  <div class="topbar">
+    <div class="search-wrap">
+      <input class="search-input" placeholder="Search courses, programs, exams..." aria-label="Search">
+      <select class="module-select" aria-label="Module"><option>All Modules</option><option>Courses</option><option>Programs</option><option>Exams</option></select>
+      <button class="search-btn">Search</button>
+    </div>
+    <div class="topbar-right">
+      <span class="live-badge" title="LIVE: real data from the running backend through the API gateway, not the fake-data demo"><span class="live-dot"></span>LIVE</span>
+      <div class="user-chip">
+        <div class="avatar" id="topAvatar">…</div>
+        <div><div class="user-name" id="topName">Loading…</div><div class="user-role" id="topRole"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="breadcrumb" id="breadcrumb"><b>Home</b> &nbsp;›&nbsp; Courses</div>
+
+  <div class="content">
+    <div class="alert alert-warn" id="originWarning" hidden style="margin:0 0 16px;"></div>
+
+    <!-- ========== COURSES ========== -->
+    <div class="view active" id="view-courses">
+      <div class="page-heading">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M4 19.5V6a2 2 0 012-2h12a2 2 0 012 2v13.5M4 19.5A2.5 2.5 0 016.5 17H20M4 19.5A2.5 2.5 0 006.5 22H20v-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <h1>Courses</h1>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <div><div class="panel-title">Course catalog</div><div class="panel-sub">Live from <span class="endpoint">GET /api/v1/academic/courses</span></div></div>
+          <div><span class="fetched-at" id="coursesFetched"></span> <button class="btn btn-outline btn-sm" type="button" onclick="loadCourses()">Refresh</button></div>
+        </div>
+        <div id="coursesBody"></div>
+      </div>
+    </div>
+
+    <!-- ========== PROGRAMS ========== -->
+    <div class="view" id="view-programs">
+      <div class="page-heading">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M12 3l9 5-9 5-9-5 9-5z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M6 10.5V16c0 1.7 2.7 3 6 3s6-1.3 6-3v-5.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <h1>Programs</h1>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <div><div class="panel-title">Degree programs</div><div class="panel-sub">Live from <span class="endpoint">GET /api/v1/academic/programs</span></div></div>
+          <div><span class="fetched-at" id="programsFetched"></span> <button class="btn btn-outline btn-sm" type="button" onclick="loadPrograms()">Refresh</button></div>
+        </div>
+        <div id="programsBody"></div>
+      </div>
+    </div>
+
+    <!-- ========== EXAMS ========== -->
+    <div class="view" id="view-exams">
+      <div class="page-heading">
+        <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M3 10h18M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M9 15l2 2 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <h1>Exams</h1>
+      </div>
+
+      <form class="panel" id="examForm" novalidate>
+        <div class="panel-title">Schedule an exam</div>
+        <div class="panel-sub">Sends <span class="endpoint">POST /api/v1/academic/exams</span>. The server checks room conflicts; a clash comes back as a real <b>409</b> with a <code>conflicts</code> list.</div>
+        <div class="form-grid">
+          <div><label for="fCourse">Course</label><select id="fCourse"><option value="">Loading courses…</option></select></div>
+          <div><label for="fSemester">Semester ID</label><input id="fSemester" type="number" min="1" step="1" list="semesterList" placeholder="e.g. 1"><datalist id="semesterList"></datalist></div>
+          <div><label for="fDate">Date</label><input id="fDate" type="date"></div>
+          <div><label for="fStart">Start</label><input id="fStart" type="time"></div>
+          <div><label for="fEnd">End</label><input id="fEnd" type="time"></div>
+          <div><label for="fRoom">Room</label><input id="fRoom" maxlength="50" placeholder="e.g. Hall A" list="roomList" autocomplete="off"><datalist id="roomList"></datalist></div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" type="submit" id="fSubmit">Schedule exam</button>
+          <span class="form-hint">There's no semesters endpoint yet, so enter the semester's ID. IDs already used by scheduled exams are suggested.</span>
+        </div>
+        <div id="examFormResult"></div>
+      </form>
+
+      <div class="panel">
+        <div class="panel-head">
+          <div><div class="panel-title">Scheduled exams</div><div class="panel-sub">Live from <span class="endpoint">GET /api/v1/academic/exams</span></div></div>
+          <div><span class="fetched-at" id="examsFetched"></span> <button class="btn btn-outline btn-sm" type="button" onclick="loadExams()">Refresh</button></div>
+        </div>
+        <div id="examsBody"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+<div class="tooltip" id="tooltip" role="tooltip" hidden></div>
+
+<script>
+/* ============================================================
+   CONFIG + API
+   ============================================================ */
+const GATEWAY_URL = 'http://localhost:3000';
+// The gateway's CORS_ORIGIN only allows this browser origin (see the warning banner).
+const EXPECTED_ORIGIN = 'http://localhost:5173';
+
+// An API failure that keeps the real HTTP status and the full response body, so the page can
+// show exactly what the server said (and use extra fields like the exam 409's `conflicts`).
+class ApiError extends Error {
+  constructor(status, body, path, method) {
+    super(errorMessage(body) || `HTTP ${status} with no error message in the body`);
+    this.status = status; this.body = body; this.path = path; this.method = method;
+  }
+}
+
+// Pulls the message out of whichever error shape the service uses:
+//   Academic: { error: "message" }   Auth / gateway: { error: { code, message } }   Other: { message }
+function errorMessage(body) {
+  if (!body) return '';
+  if (typeof body.error === 'string') return body.error;
+  if (body.error && typeof body.error === 'object') return [body.error.code, body.error.message].filter(Boolean).join(': ');
+  return body.message || '';
+}
+
+// Every data call goes through here (the requested shape, plus: real status and body on failure,
+// and 204 / non-JSON responses handled).
+async function apiCall(path, method = 'GET', body = null) {
+  const token = localStorage.getItem('liveToken');
+  const res = await fetch(GATEWAY_URL + path, {
+    method,
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+    body: body ? JSON.stringify(body) : null,
+  });
+  if (res.status === 401) {
+    try { localStorage.removeItem('liveToken'); } catch (e) { /* storage blocked */ }
+    window.location.href = 'live-login.html';
+    return new Promise(() => {}); // never resolves: the page is navigating away
+  }
+  const text = await res.text();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch (e) { data = { raw: text.slice(0, 500) }; }
+  if (!res.ok) throw new ApiError(res.status, data, path, method);
+  return data;
+}
+
+/* ============================================================
+   HELPERS
+   ============================================================ */
+const $ = (id) => document.getElementById(id);
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmtTime = (t) => String(t).slice(0, 5);
+function fmtDate(iso) {
+  const [y, m, d] = String(iso).split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+}
+const nowLabel = () => 'Fetched ' + new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+// Same course colours as the demo pages: portal courses keep their tiles, others get a stable pick.
+const PORTAL_BANNERS = { CS301: 'b1', CS310: 'b2', CS220: 'b3', CS340: 'b4' };
+function bannerFor(code) {
+  if (PORTAL_BANNERS[code]) return PORTAL_BANNERS[code];
+  let h = 0; for (const ch of String(code)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return 'b' + ((h % 5) + 1);
+}
+const courseCell = (code, title) =>
+  `<div class="course-cell"><span class="course-banner course-swatch ${bannerFor(code)}"></span><div><b>${esc(code)}</b><div class="muted" style="font-size:.78rem;">${esc(title)}</div></div></div>`;
+
+const loadingHtml = (what) => `<div class="state"><span class="spinner"></span>Loading ${esc(what)} from the gateway…</div>`;
+
+// Shows a failed call as-is: HTTP status, the server's message, and the raw body.
+function errorHtml(err, what) {
+  if (err instanceof ApiError) {
+    return `<div class="alert alert-error" role="alert"><b>Couldn't load ${esc(what)}: HTTP ${err.status}</b> from
+      <code>${esc(err.method)} ${esc(err.path)}</code><br>${esc(err.message)}
+      <details><summary>Raw response body</summary><pre>${esc(JSON.stringify(err.body, null, 2))}</pre></details></div>`;
+  }
+  return `<div class="alert alert-error" role="alert"><b>Couldn't reach the gateway</b> at <code>${esc(GATEWAY_URL)}</code> to load ${esc(what)}:
+    ${esc(err.message)}. Either it isn't running, or the browser blocked the request because this page's origin
+    (<code>${esc(location.origin)}</code>) isn't allowed by the gateway's <code>CORS_ORIGIN</code>.</div>`;
+}
+
+/* ============================================================
+   DATA
+   ============================================================ */
+const state = { courses: null, programs: null, exams: null };
+
+async function loadCourses() {
+  $('coursesBody').innerHTML = loadingHtml('courses');
+  try {
+    const [courses, programs] = await Promise.all([apiCall('/api/v1/academic/courses'), apiCall('/api/v1/academic/programs')]);
+    state.courses = courses; state.programs = programs;
+    $('coursesFetched').textContent = nowLabel();
+    renderCourses();
+    fillCourseSelect();
+  } catch (err) {
+    $('coursesBody').innerHTML = errorHtml(err, 'courses');
+    $('fCourse').innerHTML = '<option value="">Courses unavailable</option>';
+  }
+}
+
+function renderCourses() {
+  const programName = new Map((state.programs || []).map(p => [p.id, p.name]));
+  if (!state.courses.length) {
+    $('coursesBody').innerHTML = '<div class="state">The API returned an empty list: there are no courses in the database yet.</div>';
+    return;
+  }
+  $('coursesBody').innerHTML = `<div class="table-wrap"><table>
+    <thead><tr><th>Course</th><th>Program</th><th>Credits</th><th>Description</th><th>ID</th></tr></thead>
+    <tbody>${state.courses.map(c => `<tr>
+      <td>${courseCell(c.code, c.title)}</td>
+      <td>${esc(programName.get(c.program_id) ?? 'Program #' + c.program_id)}</td>
+      <td>${esc(c.credit_hours)}</td>
+      <td class="muted">${c.description ? esc(c.description) : '—'}</td>
+      <td class="muted">${esc(c.id)}</td></tr>`).join('')}</tbody></table></div>
+    <div class="form-hint" style="margin-top:10px;">${state.courses.length} course${state.courses.length === 1 ? '' : 's'}.</div>`;
+}
+
+async function loadPrograms() {
+  $('programsBody').innerHTML = loadingHtml('programs');
+  try {
+    const [programs, courses] = await Promise.all([apiCall('/api/v1/academic/programs'), apiCall('/api/v1/academic/courses')]);
+    state.programs = programs; state.courses = courses;
+    $('programsFetched').textContent = nowLabel();
+    if (!programs.length) {
+      $('programsBody').innerHTML = '<div class="state">The API returned an empty list: there are no programs in the database yet.</div>';
+      return;
+    }
+    const counts = new Map();
+    courses.forEach(c => counts.set(c.program_id, (counts.get(c.program_id) || 0) + 1));
+    $('programsBody').innerHTML = `<div class="table-wrap"><table>
+      <thead><tr><th>Program</th><th>Description</th><th>Courses</th><th>Created</th></tr></thead>
+      <tbody>${programs.map(p => `<tr>
+        <td><b>${esc(p.name)}</b></td>
+        <td class="muted">${p.description ? esc(p.description) : '—'}</td>
+        <td>${counts.get(p.id) ? `<span class="badge badge-blue">${counts.get(p.id)}</span>` : '<span class="muted">0</span>'}</td>
+        <td class="muted">${esc(new Date(p.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }))}</td></tr>`).join('')}</tbody></table></div>`;
+  } catch (err) {
+    $('programsBody').innerHTML = errorHtml(err, 'programs');
+  }
+}
+
+async function loadExams() {
+  $('examsBody').innerHTML = loadingHtml('exams');
+  try {
+    const exams = await apiCall('/api/v1/academic/exams');
+    state.exams = exams;
+    $('examsFetched').textContent = nowLabel();
+    renderExams();
+    // Suggestions for the form: semesters and rooms that scheduled exams already use.
+    const semesters = new Map(exams.map(e => [e.semester_id, e.semester_name]));
+    $('semesterList').innerHTML = [...semesters].map(([id, name]) => `<option value="${esc(id)}">${esc(name)}</option>`).join('');
+    $('roomList').innerHTML = [...new Set(exams.map(e => e.room))].map(r => `<option value="${esc(r)}"></option>`).join('');
+  } catch (err) {
+    $('examsBody').innerHTML = errorHtml(err, 'exams');
+  }
+}
+
+function renderExams(highlightIds = [], kind = '') {
+  const exams = state.exams;
+  if (!exams.length) {
+    $('examsBody').innerHTML = '<div class="state">The API returned an empty list: no exams are scheduled yet.</div>';
+    return;
+  }
+  $('examsBody').innerHTML = `<div class="table-wrap"><table>
+    <thead><tr><th>Course</th><th>Semester</th><th>Date</th><th>Time</th><th>Room</th><th>ID</th></tr></thead>
+    <tbody>${exams.map(e => {
+      const bg = highlightIds.includes(e.id) ? (kind === 'conflict' ? 'var(--red-bg)' : 'var(--green-bg)') : '';
+      return `<tr id="exam-${e.id}" style="${bg ? 'background:' + bg : ''}">
+        <td>${courseCell(e.course_code, e.course_title)}</td>
+        <td>${esc(e.semester_name)} <span class="muted">(#${esc(e.semester_id)})</span></td>
+        <td>${esc(fmtDate(e.exam_date))}</td>
+        <td>${fmtTime(e.start_time)}–${fmtTime(e.end_time)}</td>
+        <td>${esc(e.room)}</td>
+        <td class="muted">${esc(e.id)}</td></tr>`;
+    }).join('')}</tbody></table></div>
+    <div class="form-hint" style="margin-top:10px;">${exams.length} exam${exams.length === 1 ? '' : 's'}.</div>`;
+}
+
+function fillCourseSelect() {
+  const current = $('fCourse').value;
+  $('fCourse').innerHTML = '<option value="">Select a course…</option>' +
+    (state.courses || []).map(c => `<option value="${esc(c.id)}">${esc(c.code)} — ${esc(c.title)}</option>`).join('');
+  if (current) $('fCourse').value = current;
+}
+
+// POST /api/v1/academic/exams. The body is sent as entered; the server does the validating, so
+// every outcome shown here (201, 400, 409 with conflicts, 503) is the real response.
+async function submitExam(e) {
+  e.preventDefault();
+  const out = $('examFormResult');
+  out.innerHTML = '';
+  const body = {
+    courseId: Number($('fCourse').value) || $('fCourse').value,
+    semesterId: Number($('fSemester').value) || $('fSemester').value,
+    examDate: $('fDate').value,
+    startTime: $('fStart').value,
+    endTime: $('fEnd').value,
+    room: $('fRoom').value,
+  };
+  $('fSubmit').disabled = true; $('fSubmit').textContent = 'Sending…';
+  try {
+    const exam = await apiCall('/api/v1/academic/exams', 'POST', body);
+    out.innerHTML = `<div class="alert alert-success" role="status"><b>HTTP 201 · Scheduled</b> ${esc(exam.course_code)} on
+      ${esc(fmtDate(exam.exam_date))}, ${fmtTime(exam.start_time)}–${fmtTime(exam.end_time)}, in ${esc(exam.room)} (exam #${esc(exam.id)}).</div>`;
+    await loadExams();
+    renderExams([exam.id], 'new');
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 409 && Array.isArray(err.body?.conflicts)) {
+      // The real 409 body: { error, conflicts: Exam[] }. Each clash is shown from the array itself.
+      out.innerHTML = `<div class="alert alert-error" role="alert"><b>HTTP 409 · Room conflict.</b> ${esc(err.message)}
+        <ul>${err.body.conflicts.map(c => `<li class="conflict-item"><span class="course-banner course-swatch ${bannerFor(c.course_code)}" style="height:20px;"></span>
+          <b>${esc(c.course_code)}</b> ${esc(c.course_title)} <span class="time">${fmtTime(c.start_time)}–${fmtTime(c.end_time)}</span>
+          <span class="muted">${esc(c.room)} · ${esc(fmtDate(c.exam_date))} · exam #${esc(c.id)}</span></li>`).join('')}</ul>
+        <details><summary>Raw response body</summary><pre>${esc(JSON.stringify(err.body, null, 2))}</pre></details></div>`;
+      if (state.exams) renderExams(err.body.conflicts.map(c => c.id), 'conflict');
+    } else {
+      out.innerHTML = errorHtml(err, 'the exam').replace("Couldn't load the exam", "Exam not scheduled");
+    }
+  } finally {
+    $('fSubmit').disabled = false; $('fSubmit').textContent = 'Schedule exam';
+  }
+}
+
+/* ============================================================
+   NAV
+   ============================================================ */
+const titles = { courses: 'Courses', programs: 'Programs', exams: 'Exams' };
+const loaders = { courses: loadCourses, programs: loadPrograms, exams: loadExams };
+const loaded = new Set();
+
+function showView(name) {
+  if (!titles[name]) name = 'courses';
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + name));
+  document.querySelectorAll('.nav-item[data-view]').forEach(n => n.classList.toggle('active', n.dataset.view === name));
+  $('breadcrumb').innerHTML = `<b>Home</b> &nbsp;›&nbsp; ${titles[name]}`;
+  if (location.hash !== '#' + name) history.replaceState(null, '', '#' + name);
+  if (!loaded.has(name)) { loaded.add(name); loaders[name](); }
+}
+
+// Views that need backend endpoints that don't exist yet: shown, but disabled.
+const NOT_CONNECTED_TIP = 'Not yet connected — see student-portal.html for the designed version.';
+const DISABLED_VIEWS = [
+  ['Register for Courses', '<path d="M9 12h6M12 9v6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><rect x="3" y="4" width="18" height="17" rx="2" stroke="currentColor" stroke-width="1.8"/>'],
+  ['Semesters', '<rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M3 10h18" stroke="currentColor" stroke-width="1.8"/>'],
+  ['Students', '<circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.8"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>'],
+  ['Grades', '<path d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2V7a2 2 0 00-2-2h-2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8.5 13.5l2.5 2.5 4.5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>'],
+  ['Attendance', '<circle cx="9" cy="8" r="4" stroke="currentColor" stroke-width="1.8"/><path d="M15 18l2 2 4-4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>'],
+  ['At-Risk', '<path d="M12 3l9 16H3l9-16z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 10v4M12 17h.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>'],
+  ['Appeals', '<path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>'],
+  ['Transcript', '<path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8l-5-5z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M14 3v5h5" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>'],
+];
+$('disabledNav').innerHTML = DISABLED_VIEWS.map(([label, icon]) =>
+  `<button class="nav-item disabled" type="button" aria-disabled="true" data-tip="${esc(NOT_CONNECTED_TIP)}" title="${esc(NOT_CONNECTED_TIP)}">
+    <svg viewBox="0 0 24 24" fill="none">${icon}</svg><span class="nav-label">${esc(label)}</span><span class="soon">Soon</span></button>`).join('');
+
+// A visible tooltip (the native title attribute alone is slow and easy to miss), on hover and keyboard focus.
+function showTip(el) {
+  const tip = $('tooltip'), r = el.getBoundingClientRect();
+  tip.textContent = el.dataset.tip; tip.hidden = false;
+  tip.style.left = Math.min(r.right + 8, innerWidth - 250) + 'px';
+  tip.style.top = r.top + r.height / 2 - tip.offsetHeight / 2 + 'px';
+}
+document.querySelectorAll('.nav-item.disabled').forEach(el => {
+  el.addEventListener('mouseenter', () => { el.removeAttribute('title'); showTip(el); });
+  el.addEventListener('focus', () => showTip(el));
+  ['mouseleave', 'blur'].forEach(ev => el.addEventListener(ev, () => { $('tooltip').hidden = true; }));
+  el.addEventListener('click', () => showTip(el));
+});
+
+function toggleSidebar() {
+  $('sidebar').classList.toggle('collapsed');
+  try { localStorage.setItem('sidebarCollapsed', $('sidebar').classList.contains('collapsed')); } catch (e) { /* storage blocked */ }
+}
+try { if (localStorage.getItem('sidebarCollapsed') === 'true') $('sidebar').classList.add('collapsed'); } catch (e) { /* storage blocked */ }
+
+function logout() {
+  try { localStorage.removeItem('liveToken'); localStorage.removeItem('liveRole'); } catch (e) { /* storage blocked */ }
+  location.href = 'live-login.html';
+}
+
+/* ============================================================
+   STARTUP
+   ============================================================ */
+(async function init() {
+  if (location.origin !== EXPECTED_ORIGIN) {
+    $('originWarning').hidden = false;
+    $('originWarning').innerHTML = `<b>This page is open from ${esc(location.origin === 'null' ? 'a local file' : location.origin)}.</b>
+      The gateway only accepts browser requests from <code>${EXPECTED_ORIGIN}</code>, so every call below will be blocked.
+      Serve this folder on port 5173 and open <code>${EXPECTED_ORIGIN}/live-dashboard.html</code>.`;
+  }
+  let token = null;
+  try { token = localStorage.getItem('liveToken'); } catch (e) { /* storage blocked */ }
+  if (!token) { location.href = 'live-login.html'; return; }
+
+  $('examForm').addEventListener('submit', submitExam);
+  showView(location.hash.slice(1) || 'courses');
+
+  // Who is signed in, from the Auth service (a real call, not just the stored token).
+  try {
+    const me = await apiCall('/api/v1/auth/me');
+    $('topName').textContent = me.email;
+    $('topRole').textContent = me.role;
+    $('topAvatar').textContent = me.email.slice(0, 2).toUpperCase();
+  } catch (err) {
+    $('topName').textContent = 'Unknown user';
+    $('topRole').textContent = err instanceof ApiError ? `/auth/me failed: HTTP ${err.status}` : '/auth/me unreachable';
+    $('topAvatar').textContent = '?';
+  }
+})();
+</script>
+</body>
+</html>
