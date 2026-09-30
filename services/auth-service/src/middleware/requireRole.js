@@ -7,11 +7,13 @@
 //   - In auth-service, middleware/authenticate.js does that from the JWT.
 //   - In other services, the gateway has already verified the token, so set it from its headers:
 //       app.use((req, res, next) => {
-//         if (req.get('x-user-id')) req.user = { id: req.get('x-user-id'), role: req.get('x-user-role') };
+//         if (req.get('x-user-id')) {
+//           req.user = { id: req.get('x-user-id'), role: req.get('x-user-role'), tenant_id: req.get('x-tenant-id') };
+//         }
 //         next();
 //       });
-//     Only do this if the service is unreachable except through the gateway (true in our compose setup),
-//     otherwise anyone could send those headers themselves.
+//     This is safe because the gateway deletes any x-user-id / x-user-role / x-tenant-id a client sends,
+//     and services are unreachable except through the gateway (see docs/gateway.md).
 function requireRole(...allowedRoles) {
   if (allowedRoles.length === 0) {
     throw new Error('requireRole() needs at least one role');

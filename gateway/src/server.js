@@ -1,80 +1,14 @@
-require("dotenv").config();
+// Entry point: starts the gateway. This is the only file that listens on a port.
+const createApp = require('./app');
+const config = require('./config/env');
 
-const express = require("express");
-const cors = require("cors");
-const { createProxyMiddleware } = require("http-proxy-middleware");
-
-const app = express();
-
-app.use(cors());
-app.use(express.json());
-
-// Health check
-app.get("/health", (req, res) => {
-  res.json({
-    service: "api-gateway",
-    status: "OK"
-  });
+const server = createApp().listen(config.port, () => {
+  console.log(`gateway listening on port ${config.port}`);
 });
 
-// Route requests to the correct services
-app.use(
-  "/api/auth",
-  createProxyMiddleware({
-    target: process.env.AUTH_SERVICE_URL,
-    changeOrigin: true,
-    pathRewrite: {
-      "^/api/auth": ""
-    }
-  })
-);
-
-app.use(
-  "/api/academic",
-  createProxyMiddleware({
-    target: process.env.ACADEMIC_SERVICE_URL,
-    changeOrigin: true,
-    pathRewrite: {
-      "^/api/academic": ""
-    }
-  })
-);
-
-app.use(
-  "/api/finance",
-  createProxyMiddleware({
-    target: process.env.FINANCE_SERVICE_URL,
-    changeOrigin: true,
-    pathRewrite: {
-      "^/api/finance": ""
-    }
-  })
-);
-
-app.use(
-  "/api/hr",
-  createProxyMiddleware({
-    target: process.env.HR_SERVICE_URL,
-    changeOrigin: true,
-    pathRewrite: {
-      "^/api/hr": ""
-    }
-  })
-);
-
-app.use(
-  "/api/notifications",
-  createProxyMiddleware({
-    target: process.env.NOTIFICATION_SERVICE_URL,
-    changeOrigin: true,
-    pathRewrite: {
-      "^/api/notifications": ""
-    }
-  })
-);
-
-const PORT = process.env.PORT || 3000;
-
-app.listen(PORT, () => {
-  console.log(`API Gateway running on port ${PORT}`);
-});
+// `docker stop` sends SIGTERM: stop accepting connections and let open requests finish.
+function shutdown() {
+  server.close(() => process.exit(0));
+}
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);
