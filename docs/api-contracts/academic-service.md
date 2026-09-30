@@ -31,6 +31,11 @@ Every error response has the shape `{ "error": "message" }`. A request body that
 | GET | `/api/v1/exams/:id` | — | `200` Exam | `400` non-integer id; `404` not found. |
 | PUT | `/api/v1/exams/:id` | Same as POST | `200` Exam | Full replace. Re-runs the conflict check against the new room/date/times, **excluding this exam itself**. On `409` the exam is left unchanged. `400` / `409` / `503` as POST; `404` not found. |
 | DELETE | `/api/v1/exams/:id` | — | `204` (no body) | Frees the room slot. `400` non-integer id; `404` not found. |
+| POST | `/api/v1/grades/:gradeId/appeals` | `{ studentId*: int, reason*: string(≤2000) }` | `201` Appeal (status `pending`) | Only one open appeal (`pending`/`under_review`) per grade, enforced by the DB even under concurrent requests. A grade can be appealed again once earlier appeals are resolved. `400` missing/invalid field, grade not published yet, or grade belongs to a different student; `404` grade not found; `409` an open appeal already exists for this grade. Errors include a machine-readable `code`. |
+| GET | `/api/v1/appeals` | — | `200` Appeal[] | Oldest first (work-queue order). Optional `?status=` (one of the four statuses). `400` unknown status. |
+| GET | `/api/v1/appeals/:id` | — | `200` Appeal | `400` non-integer id; `404` not found. |
+| PUT | `/api/v1/appeals/:id/status` | `{ status*: "under_review" \| "resolved_approved" \| "resolved_rejected", instructorResponse?: string, newGradeLetter?: "A"–"F", newGradePoints?: number 0–4 (≤ 2 decimals) }` | `200` Appeal | Allowed: `pending → under_review → resolved_approved \| resolved_rejected`; resolved is final. `instructorResponse` is **required** to resolve (sets `resolved_at`) and optional for `under_review`. `newGradeLetter` + `newGradePoints` must come together and only with `resolved_approved`: the grade is then changed and re-published **in the same transaction** as the approval (all or nothing), then `academic.grade.published` is sent and the student's at-risk status is re-checked. `400` invalid input, invalid transition, or missing response; `404` appeal not found. |
+| GET | `/api/v1/students/:studentId/transcript/pdf` | — | `200` `application/pdf` (streamed) | Download with `Content-Disposition: attachment; filename="transcript-<matricNumber>.pdf"` and `Cache-Control: no-store`. Contains name, matric number, one section per semester (code, title, credits, grade, points, semester GPA) and the cumulative GPA; **published grades only**. `400` non-integer id; `404` student not found (JSON). |
 
 `*` = required.
 
@@ -65,6 +70,10 @@ Every error response has the shape `{ "error": "message" }`. A request body that
 **AtRiskStudent:** `{ student_id, first_name, last_name, email, flagged_at, reasons: string[] }`
 
 **Exam:** `{ id, course_id, course_code, course_title, semester_id, semester_name, exam_date: "YYYY-MM-DD", start_time: "HH:MM:SS", end_time: "HH:MM:SS", room, created_at }`
+
+**Appeal:** `{ id, grade_id, student_id, first_name, last_name, course_id, course_code, course_title, semester_id, semester_name, original_grade_letter, original_grade_points: number, current_grade_letter, current_grade_points: number, reason, status: "pending" | "under_review" | "resolved_approved" | "resolved_rejected", instructor_response: string | null, created_at, resolved_at: timestamp | null }`. `original_*` is the grade when the appeal was filed; `current_*` is the grade now (different after an approved regrade).
+
+**Matric number:** currently a placeholder derived from the student id (`STU` + 6-digit zero-padded id, e.g. `STU000042`), because students have no matric number field yet.
 
 **Exam conflict rule:** two exams conflict if they're in the **same room** (case-insensitive, surrounding spaces ignored), on the **same date**, and their time ranges overlap. Ranges are half-open `[start, end)`, and `[s1, e1)` overlaps `[s2, e2)` when `s1 < e2 AND s2 < e1`. So partial overlaps, one exam inside another, and one exam surrounding another all conflict, but **back-to-back exams do not** (09:00–11:00 then 11:00–13:00 is fine). Semester and course don't matter to a room clash. Bookings for the same room are serialised with a lock, so two simultaneous requests can't double-book it.
 
