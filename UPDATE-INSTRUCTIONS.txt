@@ -1,0 +1,29 @@
+ERP-School Finance Update
+
+Extract this ZIP into your existing ERP-School folder and choose Replace/Overwrite when Windows asks.
+
+Then run:
+
+1. Terminal 1:
+   cd C:\Users\SIS\ERP-School
+   docker compose up -d finance-db rabbitmq
+
+2. Terminal 2:
+   cd C:\Users\SIS\ERP-School\services\finance-service
+   npm install
+   npm run migrate
+   npm run dev
+
+3. Terminal 3:
+   cd C:\Users\SIS\ERP-School\gateway
+   npm install
+   npm run dev
+
+4. Test:
+   http://localhost:3000/health
+   http://localhost:3000/api/finance/health
+
+The finance service is now on port 4003 to match the project architecture.
+The gateway remains on port 3000.
+
+Do not delete your .git folder.

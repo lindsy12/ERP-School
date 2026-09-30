@@ -2,23 +2,36 @@
 
 **Owner:** Person B
 
-Owns: tuition invoices, payment tracking, mobile-money mock integration, expense tracking,
-marketing campaign tracking (leads, conversions, ROI), monthly financial reports (FCFA).
+Owns: tuition invoices, payment tracking, mock mobile-money integration, expense tracking,
+marketing campaign tracking (leads, conversions, ROI), and monthly financial reports (FCFA).
 
-## Subscribes (RabbitMQ)
-- `academic.student.enrolled` — creates a tuition invoice for the newly enrolled student.
+## Events
 
-## Publishes (RabbitMQ)
+Subscribes to:
+- `academic.student.enrolled` — creates a tuition invoice.
+
+Publishes:
 - `finance.invoice.created` — consumed by Notifications.
-- `finance.payment.received` — consumed by Notifications (digital receipt).
+- `finance.payment.received` — consumed by Notifications.
 
-## Owns its own database
-`finance_db` — see docker-compose.yml. No other service touches these tables directly.
+## Local setup
 
-## Setup
-1. Copy `.env.example` to `.env` and fill in real values.
-2. `npm install`
-3. `npm run dev`
+1. Make sure `finance-db` and RabbitMQ are running.
+2. Copy `.env.example` to `.env` if needed.
+3. Run `npm install`.
+4. Run `npm run migrate`.
+5. Run `npm run dev`.
 
-## Endpoints
-See `docs/api-contracts/finance-service.md` for the full REST contract.
+The local finance service runs on port `4003` and connects to the Docker MySQL mapping
+`localhost:3308`.
+
+## Main endpoints
+
+- `/health`
+- `/api/v1/finance/invoices`
+- `/api/v1/finance/payments`
+- `/api/v1/finance/payments/momo`
+- `/api/v1/finance/expenses`
+- `/api/v1/finance/campaigns`
+- `/api/v1/finance/reports/monthly?month=&year=`
+- `/api/v1/finance/docs`
