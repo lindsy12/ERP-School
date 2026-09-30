@@ -35,9 +35,9 @@ async function me(req, res) {
 // For the gateway: who does this token belong to? Rejects disabled or deleted users and revoked
 // tokens immediately, not only when the token expires (see middleware/authenticate.js).
 async function verify(req, res) {
-  const { id, role, tenant_id: tenantId } = req.user;
+  const { id, email, role, tenant_id: tenantId } = req.user;
   res.set('Cache-Control', 'no-store');
-  res.json({ id, role, tenant_id: tenantId });
+  res.json({ id, email, role, tenant_id: tenantId });
 }
 
 module.exports = { login, refresh, logout, changePassword, me, verify };

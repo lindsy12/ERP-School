@@ -81,6 +81,7 @@ send one. The pages then call the API with the token. So:
 |---|---|---|
 | `x-user-id` | the user's UUID | **Yes.** Set by the gateway from auth-service's answer. |
 | `x-user-role` | `SUPER_ADMIN`, `ADMIN`, `STAFF` or `STUDENT` | **Yes.** Same. |
+| `x-user-email` | the user's sign-in email | **Yes.** Same. Use it to find your own record for this account (academic links a student this way). |
 | `x-tenant-id` | the user's school (tenant) UUID | **Yes.** Same. Filter your queries by it. |
 | `x-request-id` | correlation ID (UUID or the client's own) | For logs only; include it in your log lines. |
 | `x-forwarded-for`, `-proto`, `-host` | original client IP / scheme / host | Informational. |

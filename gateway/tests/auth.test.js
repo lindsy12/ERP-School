@@ -99,6 +99,16 @@ describe('protected routes', () => {
     expect(res.body.headers['x-user-id']).toBe(TEST_USERS['good-token'].id);
     expect(res.body.headers['x-user-role']).toBe('STAFF');
     expect(res.body.headers['x-tenant-id']).toBe('tenant-abc');
+    expect(res.body.headers['x-user-email']).toBe('staff@school.test');
+  });
+
+  it('replaces a forged x-user-email with the verified one', async () => {
+    const res = await request(appWith())
+      .get('/api/v1/hr/employees')
+      .set('Authorization', 'Bearer good-token')
+      .set('x-user-email', 'someone.else@school.test');
+
+    expect(res.body.headers['x-user-email']).toBe('staff@school.test');
   });
 
   it('sends the caller\'s token and request id to /verify', async () => {

@@ -71,6 +71,8 @@ export class ApiError extends Error {
 async function errorFrom(res) {
   try {
     const { error } = await res.json();
+    // Most services send { error: { code, message } }; academic-service sends { error: "message" }.
+    if (typeof error === 'string') return new ApiError(error, res.status);
     if (error) return new ApiError(error.message, res.status, error.code, error.details);
   } catch (e) { /* not JSON, e.g. a proxy error page */ }
   return new ApiError(`Request failed (${res.status})`, res.status);

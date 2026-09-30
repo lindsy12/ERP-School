@@ -47,7 +47,7 @@ function registryEntry(name, baseUrl, prefix, uiPrefix, { inlineScripts = false 
 // A fake auth-service /api/v1/auth/verify. `users` maps a token to the identity it belongs to;
 // any other token gets auth-service's 401. `mode` makes it misbehave: 'slow', 'error500', 'garbage'.
 const TEST_USERS = {
-  'good-token': { id: 'user-123', role: 'STAFF', tenant_id: 'tenant-abc' },
+  'good-token': { id: 'user-123', email: 'staff@school.test', role: 'STAFF', tenant_id: 'tenant-abc' },
   'admin-token': { id: 'admin-1', role: 'ADMIN', tenant_id: 'tenant-abc' },
 };
 

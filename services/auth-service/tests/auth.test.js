@@ -213,7 +213,7 @@ describe('GET /api/v1/auth/verify', () => {
 
     expect(res.status).toBe(200);
     expect(res.headers['cache-control']).toBe('no-store');
-    expect(res.body).toEqual({ id: user.id, role: 'ADMIN', tenant_id: TENANT_ID });
+    expect(res.body).toEqual({ id: user.id, email: user.email, role: 'ADMIN', tenant_id: TENANT_ID });
   });
 
   it('401 without a token', async () => {

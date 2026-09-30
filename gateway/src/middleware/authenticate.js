@@ -85,6 +85,8 @@ function authenticate({ verifyUrl, timeoutMs, publicRoutes }) {
     req.headers['x-user-id'] = String(identity.id);
     req.headers['x-user-role'] = String(identity.role);
     req.headers['x-tenant-id'] = String(identity.tenant_id);
+    // Lets a service find its own record for this account (e.g. academic's student by email).
+    if (identity.email) req.headers['x-user-email'] = String(identity.email);
     return next();
   };
 }
