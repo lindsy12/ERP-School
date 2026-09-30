@@ -18,12 +18,16 @@ Stretch (only after the core rubric is covered): real email via Nodemailer + a f
 - `hr.payroll.processed`
 
 ## Owns its own database
-`notification_db` — a simple table: userId, message, read (bool), createdAt.
+`notification_db` — `notifications` (audience, optional userId, title, message, createdAt) and `notification_reads` (who has read what).
 
 ## Setup
 1. Copy `.env.example` to `.env` and fill in real values.
 2. `npm install`
-3. `npm run dev`
+3. `npm run dev` (creates the tables at startup; `npm run migrate` does it alone)
+
+Who sees what: events name students and employees by their ids in other services, not by login account,
+so notifications go to an audience of roles (`STAFF` or `ADMINS`, see `src/services/audiences.js`), and
+each user has their own read/unread state. The page is served at `/notifications/`.
 
 ## Endpoints
 See `docs/api-contracts/notification-service.md` for the full REST contract.

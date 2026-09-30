@@ -1,0 +1,16 @@
+/* Notifications page: only what /auth/css/styles.css doesn't already provide. */
+.notif-list { list-style: none; margin: 0; padding: 0; overflow: hidden; }
+.notif { display: flex; gap: 14px; align-items: flex-start; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+.notif:last-child { border-bottom: 0; }
+.notif.unread { background: var(--info-bg); }
+.notif .dot { flex: none; width: 9px; height: 9px; margin-top: 7px; border-radius: 50%; background: transparent; }
+.notif.unread .dot { background: var(--info); }
+.notif .body { flex: 1; min-width: 0; }
+.notif .body strong { display: block; }
+.notif .body p { margin: 3px 0 4px; overflow-wrap: anywhere; }
+.notif .meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+.toolbar [aria-pressed="true"] { border-color: var(--brand); color: var(--brand); }
+@media (max-width: 640px) {
+  .notif { padding: 12px; }
+  .notif .btn { padding: 4px 8px; }
+}
