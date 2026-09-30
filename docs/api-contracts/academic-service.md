@@ -2,7 +2,15 @@
 
 ## REST endpoints
 
-Base URL: `http://localhost:3000` (the gateway), which forwards `/api/v1/academic/*` unchanged to `academic-service:4002`. Every `/api/v1/academic` call needs `Authorization: Bearer <token>`; the service reads the caller from the gateway's `x-user-id` / `x-user-role` headers (`401` without them). Students may read and file grade appeals; every other `POST`/`PUT`/`DELETE` needs `SUPER_ADMIN`, `ADMIN` or `STAFF` (`403` otherwise). Web pages are served at `/academic/`.
+Base URL: `http://localhost:3000` (the gateway), which forwards `/api/v1/academic/*` unchanged to `academic-service:4002`. Every `/api/v1/academic` call needs `Authorization: Bearer <token>`; the service reads the caller from the gateway's `x-user-id` / `x-user-role` / `x-user-email` headers (`401` without them). Web pages are served at `/academic/`.
+
+**Who may do what** (`src/middleware/identity.js`; anything else is `403`):
+
+| Role | Allowed |
+|---|---|
+| `STUDENT` | Their own record only, found by email (`GET /students/me`, their `enrollments`, published `grades`, `attendance`, `at-risk`, `transcript/pdf`); register themselves (`POST /enrollments` with their own `studentId`); appeal their own grades; read programs, courses, semesters and exams. A student account whose email matches no student record gets `404` from `/students/me`. |
+| `STAFF` (lecturers) | Everything students can read, for every student; offerings, rosters, sessions, attendance, grades (record and publish), appeals (review), at-risk list. Exams are read-only. |
+| `SUPER_ADMIN`, `ADMIN` | Everything, including programs, courses, semesters, students, enrolments and exams. |
 Every error response has the shape `{ "error": "message" }`. A request body that isn't valid JSON returns `400`.
 
 | Method | Path | Request body | Response | Notes |

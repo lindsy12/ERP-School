@@ -158,7 +158,7 @@ async function publishGrade(req, res) {
 // GET /api/v1/academic/students/:studentId/grades
 // Returns { studentId, gpa, totalCredits, grades: [...] }.
 // gpa and totalCredits cover PUBLISHED grades only (see gradeModel.getGPA for the formula).
-// grades lists drafts too, each with a `published` flag.
+// grades lists drafts too, each with a `published` flag, except for students: a draft can still change.
 // 404 if the student doesn't exist; gpa is null if nothing has been published yet.
 async function getStudentGrades(req, res) {
   const studentId = parseId(req.params.studentId);
@@ -172,7 +172,8 @@ async function getStudentGrades(req, res) {
       gradeModel.getGPA(studentId),
       gradeModel.getGradesForStudent(studentId),
     ]);
-    return res.json({ studentId, gpa, totalCredits, grades });
+    const visible = req.user?.role === 'STUDENT' ? grades.filter((g) => g.published) : grades;
+    return res.json({ studentId, gpa, totalCredits, grades: visible });
   } catch (err) {
     console.error('getStudentGrades failed:', err);
     return res.status(500).json({ error: 'Failed to get student grades' });

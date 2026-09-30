@@ -5,6 +5,11 @@ const { findMissingFields } = require('../utils/validation');
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// GET /api/v1/academic/students/me: the calling student's own record (found by middleware/identity.js).
+async function getMe(req, res) {
+  return res.json({ ...req.student, matric_number: `STU${String(req.student.id).padStart(6, '0')}` });
+}
+
 async function listStudents(req, res) {
   try {
     return res.json(await studentModel.listStudents());
@@ -41,6 +46,7 @@ async function createStudent(req, res) {
 }
 
 module.exports = {
+  getMe,
   listStudents,
   createStudent,
 };

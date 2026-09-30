@@ -3,23 +3,20 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>My studies · School ERP</title>
+  <title>Registrar · School ERP</title>
   <!-- Same design as the rest of the ERP: the stylesheet served by auth-service. -->
   <link rel="stylesheet" href="/auth/css/styles.css">
-  <link rel="stylesheet" href="css/portal.css">
 </head>
 <body>
   <div class="shell">
     <aside class="side">
-      <div class="brand"><span class="logo" aria-hidden="true">ERP</span><span>School ERP<small>My studies</small></span></div>
+      <div class="brand"><span class="logo" aria-hidden="true">ERP</span><span>School ERP<small>Registrar</small></span></div>
       <nav id="nav" class="nav" aria-label="Sections">
-        <a href="#/dashboard" data-route="dashboard">Dashboard</a>
-        <a href="#/register" data-route="register">Course registration</a>
-        <a href="#/courses" data-route="courses">My courses</a>
-        <a href="#/grades" data-route="grades">Grades &amp; transcript</a>
-        <a href="#/attendance" data-route="attendance">Attendance</a>
-        <a href="#/timetable" data-route="timetable">Exam timetable</a>
-        <a href="/notifications/">Notifications</a>
+        <a href="#/students" data-route="students">Students</a>
+        <a href="#/enrol" data-route="enrol">Enrol a student</a>
+        <a href="#/courses" data-route="courses">Programs &amp; courses</a>
+        <a href="#/semesters" data-route="semesters">Semesters</a>
+        <a href="/academic/">Academics home</a>
         <a href="/auth/#/home">ERP home</a>
       </nav>
       <div class="who"><strong id="who"></strong><span id="who-sub"></span><button id="logout" class="btn secondary sm" type="button">Sign out</button></div>
@@ -27,6 +24,6 @@
     <main id="view" class="main" tabindex="-1"><div class="loading" role="status">Loading…</div></main>
   </div>
   <div id="toasts" aria-live="polite"></div>
-  <script type="module" src="js/student-portal.js"></script>
+  <script type="module" src="js/registrar.js"></script>
 </body>
 </html>

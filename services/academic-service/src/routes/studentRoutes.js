@@ -7,6 +7,7 @@ const studentController = require('../controllers/studentController');
 // it returns is enrollments, just filtered by student.
 const router = express.Router();
 
+router.get('/me', studentController.getMe);
 router.get('/', studentController.listStudents);
 router.post('/', studentController.createStudent);
 router.get('/:studentId/enrollments', enrollmentController.listStudentEnrollments);

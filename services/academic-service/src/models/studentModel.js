@@ -15,6 +15,16 @@ async function getStudentById(id, db = pool) {
   return rows[0] || null;
 }
 
+// The student whose email is `email` (case-insensitive), or null. Links a STUDENT login to its record.
+async function getStudentByEmail(email, db = pool) {
+  const [rows] = await db.query(
+    `SELECT id, first_name, last_name, email, enrollment_date, created_at
+       FROM students WHERE email = ?`,
+    [email]
+  );
+  return rows[0] || null;
+}
+
 // All students, by last name.
 async function listStudents(db = pool) {
   const [rows] = await db.query(
@@ -34,6 +44,7 @@ async function createStudent({ firstName, lastName, email }, db = pool) {
 
 module.exports = {
   getStudentById,
+  getStudentByEmail,
   listStudents,
   createStudent,
 };

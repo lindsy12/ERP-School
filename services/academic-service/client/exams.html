@@ -192,6 +192,8 @@
   .muted { color: var(--text-muted); }
   .empty-state { text-align: center; color: var(--text-muted); padding: 28px 10px; font-size: .87rem; }
   .loading { color: var(--text-muted); font-size: .84rem; }
+  /* Staff: timetable only. Scheduling and deleting are for administrators (the API enforces it too). */
+  body.read-only #examForm, body.read-only .row-actions > * { display: none; }
 </style>
 </head>
 <body>
@@ -384,14 +386,14 @@ async function erpSignOut() {
   location.assign('/auth/');
 }
 
-// The signed-in user's email, for the top bar.
-async function currentUserName(fallback) {
+// The signed-in user ({ id, email, role, tenant_id }), or null if they must sign in first.
+async function currentUser() {
+  const { api, requireSession } = await erpSession;
+  if (!requireSession()) return null;
   try {
-    const { api } = await erpSession;
-    const me = await api('/api/v1/auth/me');
-    return me.email || fallback;
+    return await api('/api/v1/auth/me');
   } catch (e) {
-    return fallback;
+    return null;
   }
 }
 
@@ -727,7 +729,12 @@ try { if (localStorage.getItem('sidebarCollapsed') === 'true') $('sidebar').clas
    ============================================================ */
 
 (async function init() {
-  const name = await currentUserName('Administrator');
+  const me = await currentUser();
+  if (!me) return;
+  // Students see exams in their portal; staff see the timetable but only administrators schedule.
+  if (me.role === 'STUDENT') { location.replace('student-portal.html#/timetable'); return; }
+  if (!['SUPER_ADMIN', 'ADMIN'].includes(me.role)) document.body.classList.add('read-only');
+  const name = me.email;
   $('topAvatar').textContent = initials(name);
   $('topName').textContent = name;
   showView(location.hash.slice(1) || 'exams');

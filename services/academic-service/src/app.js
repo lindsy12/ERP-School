@@ -2,7 +2,7 @@ require('dotenv').config();
 const path = require('path');
 const express = require('express');
 const pool = require('./db');
-const { identify, staffWritesOnly } = require('./middleware/identity');
+const { identify, authorize } = require('./middleware/identity');
 const programRoutes = require('./routes/programRoutes');
 const courseRoutes = require('./routes/courseRoutes');
 const enrollmentRoutes = require('./routes/enrollmentRoutes');
@@ -38,7 +38,7 @@ app.use('/academic', express.static(path.join(__dirname, '..', 'client')));
 
 // Every API route lives under /api/v1/academic: the gateway forwards that prefix here unchanged.
 const api = express.Router();
-api.use(identify, staffWritesOnly);
+api.use(identify, authorize);
 api.use('/programs', programRoutes);
 api.use('/courses', courseRoutes);
 api.use('/enrollments', enrollmentRoutes);

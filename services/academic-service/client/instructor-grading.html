@@ -484,14 +484,14 @@ async function erpSignOut() {
   location.assign('/auth/');
 }
 
-// The signed-in user's email, for the top bar.
-async function currentUserName(fallback) {
+// The signed-in user ({ id, email, role, tenant_id }), or null if they must sign in first.
+async function currentUser() {
+  const { api, requireSession } = await erpSession;
+  if (!requireSession()) return null;
   try {
-    const { api } = await erpSession;
-    const me = await api('/api/v1/auth/me');
-    return me.email || fallback;
+    return await api('/api/v1/auth/me');
   } catch (e) {
-    return fallback;
+    return null;
   }
 }
 
@@ -1268,7 +1268,11 @@ try { if (localStorage.getItem('sidebarCollapsed') === 'true') $('sidebar').clas
    ============================================================ */
 
 (async function init() {
-  const name = await currentUserName('Instructor');
+  const me = await currentUser();
+  if (!me) return;
+  // Grading and registers are staff work; students have their own portal.
+  if (me.role === 'STUDENT') { location.replace('student-portal.html'); return; }
+  const name = me.email;
   $('topAvatar').textContent = initials(name);
   $('topName').textContent = name;
   showView(location.hash.slice(1) || 'grading');
