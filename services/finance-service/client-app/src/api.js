@@ -1,30 +1,31 @@
-const API = "/api/finance/api/v1/finance";
+// Calls go through the gateway (/api/v1/finance), with the sign-in shared by every ERP module:
+// /auth/js/session.js adds the access token and renews it when it expires. It is loaded at run
+// time from the gateway, not bundled, so every module uses the same copy.
+const API = "/api/v1/finance";
 const DEFAULT_TIMEOUT_MS = 8000;
+const SESSION_MODULE = "/auth/js/session.js";
+
+let sessionPromise;
+export const session = () => (sessionPromise ??= import(/* @vite-ignore */ SESSION_MODULE));
 
 function isTimeoutError(error) {
   return error?.name === "AbortError" || error?.code === "REQUEST_TIMEOUT";
 }
 
 async function request(path, options = {}, timeoutMs = DEFAULT_TIMEOUT_MS) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const response = await fetch(`${API}${path}`, {
-      headers: { "Content-Type": "application/json", ...(options.headers || {}) },
-      ...options,
-      signal: controller.signal
-    });
-    const text = await response.text();
-    let data = null;
-    try { data = text ? JSON.parse(text) : null; } catch { data = text; }
-    if (!response.ok) throw new Error(data?.message || data?.error?.message || `Request failed (${response.status})`);
-    return data;
-  } catch (error) {
-    if (isTimeoutError(error)) {
+  const { api } = await session();
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => {
       const e = new Error("The Finance server took too long to respond. I will check whether the record was saved before asking you to try again.");
       e.code = "REQUEST_TIMEOUT";
-      throw e;
-    }
+      reject(e);
+    }, timeoutMs);
+  });
+  try {
+    const body = options.body !== undefined ? JSON.parse(options.body) : undefined;
+    return await Promise.race([api(`${API}${path}`, { method: options.method || "GET", body }), timeout]);
+  } catch (error) {
     if (error instanceof TypeError && /fetch/i.test(error.message)) {
       throw new Error("Cannot reach the Finance backend. Please make sure the ERP backend is running.");
     }
@@ -56,7 +57,6 @@ async function createWithRecovery({ postPath, body, listPath, matcher, label }) 
 }
 
 export const financeApi = {
-  health: () => fetch("/api/finance/health").then(r => r.json()),
   invoices: (query = "") => request(`/invoices${query}`),
   invoice: id => request(`/invoices/${id}`),
   createInvoice: body => createWithRecovery({

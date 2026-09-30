@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "jest",
+    "build:client": "cd client-app && npm install && npm run build",
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "migrate": "node src/db/migrate.js"
@@ -22,5 +23,16 @@
   "devDependencies": {
     "jest": "^30.5.2",
     "supertest": "^7.3.0"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/client-app/"
+    ],
+    "modulePathIgnorePatterns": [
+      "<rootDir>/client-app/",
+      "<rootDir>/client/"
+    ]
   }
 }

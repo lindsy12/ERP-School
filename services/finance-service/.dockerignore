@@ -1,4 +1,6 @@
 node_modules
+client-app/node_modules
+client
 npm-debug.log
 .env
 tests

@@ -5,7 +5,23 @@ import {
   TrendingDown, TrendingUp, Plus, Smartphone, Megaphone
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-import { financeApi } from "./api";
+import { financeApi, session } from "./api";
+
+const ROLE_LABELS = { SUPER_ADMIN: "Super Admin", ADMIN: "Admin", STAFF: "Staff", STUDENT: "Student" };
+
+function useMe() {
+  const [me, setMe] = useState(null);
+  useEffect(() => {
+    session().then(({ api }) => api("/api/v1/auth/me")).then(setMe).catch(() => setMe(null));
+  }, []);
+  return me;
+}
+
+async function signOut() {
+  const { signOut: end } = await session();
+  await end();
+  window.location.assign("/auth/");
+}
 
 const money = (value) =>
   new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(Number(value || 0)) + " FCFA";
@@ -16,6 +32,8 @@ function App() {
   const [page, setPage] = useState("dashboard");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [refresh, setRefresh] = useState(0);
+  const me = useMe();
+  const initials = (me?.email || "?").slice(0, 2).toUpperCase();
 
   const nav = [
     ["dashboard", "Dashboard", LayoutDashboard],
@@ -52,12 +70,14 @@ function App() {
         </nav>
 
         <div className="sidebar-bottom">
-          <button className={`nav-item ${page === "notifications" ? "active" : ""}`} onClick={() => { setPage("notifications"); setMobileOpen(false); }}><Bell size={19}/><span>Notifications</span><span className="badge">3</span></button>
+          <a className="nav-item" href="/auth/#/home"><LayoutDashboard size={19}/><span>ERP home</span></a>
+          <button className={`nav-item ${page === "notifications" ? "active" : ""}`} onClick={() => { setPage("notifications"); setMobileOpen(false); }}><Bell size={19}/><span>Finance activity</span></button>
           <button className={`nav-item ${page === "settings" ? "active" : ""}`} onClick={() => { setPage("settings"); setMobileOpen(false); }}><Settings size={19}/><span>Settings</span></button>
           <div className="user-card">
-            <div className="avatar">F</div>
-            <div><strong>Finance Admin</strong><span>Finance Department</span></div>
+            <div className="avatar">{initials}</div>
+            <div><strong>{me?.email || "Signed in"}</strong><span>{ROLE_LABELS[me?.role] || me?.role || ""}</span></div>
           </div>
+          <button className="nav-item" onClick={signOut}><X size={19}/><span>Sign out</span></button>
         </div>
       </aside>
 
@@ -67,7 +87,7 @@ function App() {
           <div className="crumbs"><span>ERP School</span><b>/</b><strong>Finance</strong></div>
           <div className="top-actions">
             <button className="icon-btn" title="Refresh" onClick={() => setRefresh(v => v + 1)}><RefreshCw size={18}/></button>
-            <div className="top-avatar">FA</div>
+            <div className="top-avatar" title={me?.email}>{initials}</div>
           </div>
         </header>
 

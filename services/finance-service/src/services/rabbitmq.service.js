@@ -2,11 +2,21 @@ const amqp = require("amqplib");
 const invoiceModel = require("../models/invoice.model");
 
 let channel;
+let onClose = null; // server.js restarts the consumer when the broker connection drops
+
+function onConnectionClosed(fn) {
+  onClose = fn;
+}
 
 async function connectRabbitMQ() {
   if (channel) return channel;
   const url = process.env.RABBITMQ_URL || "amqp://localhost:5672";
   const connection = await amqp.connect(url);
+  connection.on("error", (err) => console.error("[rabbitmq] connection error:", err.message));
+  connection.on("close", () => {
+    channel = null;
+    if (onClose) onClose();
+  });
   channel = await connection.createChannel();
   await channel.assertExchange("erp.events", "topic", { durable: true });
   return channel;
@@ -28,8 +38,11 @@ async function startConsumer() {
   await ch.consume(queue, async (message) => {
     if (!message) return;
     try {
-      const payload = JSON.parse(message.content.toString());
-      const sourceEventId = payload.eventId || null;
+      const raw = JSON.parse(message.content.toString());
+      const payload = raw.data || raw; // some publishers wrap the payload in { event, data }
+      // academic-service sends no eventId: one enrolment (student, course, semester) is one invoice.
+      const sourceEventId = payload.eventId
+        || (payload.studentId ? `enrolled-${payload.studentId}-${payload.courseId}-${payload.semesterId}` : null);
       if (sourceEventId && await invoiceModel.findBySourceEventId(sourceEventId)) {
         ch.ack(message);
         return;
@@ -37,7 +50,7 @@ async function startConsumer() {
       const invoice = await invoiceModel.create({
         studentId: payload.studentId,
         academicYear: payload.academicYear || new Date().getFullYear().toString(),
-        amount: payload.amount,
+        amount: payload.amount ?? payload.tuitionAmount,
         dueDate: payload.dueDate || new Date(Date.now() + 30 * 86400000).toISOString().slice(0,10),
         sourceEventId
       });
@@ -56,4 +69,4 @@ async function startConsumer() {
   });
 }
 
-module.exports = { connectRabbitMQ, publish, startConsumer };
+module.exports = { connectRabbitMQ, publish, startConsumer, onConnectionClosed };

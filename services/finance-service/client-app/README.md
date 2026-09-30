@@ -1,46 +1,21 @@
-# ERP School Finance Frontend
+# Finance pages (React + Vite)
 
-A React/Vite Finance module for the ERP School project.
+The Finance module's frontend: dashboard, invoices, payments (including mock Mobile Money), expenses,
+campaigns and the monthly FCFA report.
 
-## What it includes
+- Built with `npm run build` into `../client/`, which finance-service serves at `/finance/`
+  (the Docker image builds it for you).
+- Uses the ERP's shared sign-in: `src/api.js` loads `/auth/js/session.js` from the gateway at run
+  time, so opening the page without a session sends you to the sign-in page and back.
+- All API calls go to `/api/v1/finance/*` through the gateway.
 
-- Finance dashboard
-- Invoice listing and invoice creation
-- Payment listing and payment recording
-- Mock Mobile Money payment
-- Expense listing and expense creation
-- Campaign listing and campaign creation
-- Monthly financial report
-- Responsive sidebar/navigation
-- FCFA formatting
-- Error/loading states
+## Develop with hot reload
 
-## API
-
-The Finance frontend uses the Finance service directly during local development. Vite proxies `/api/finance/*` to `http://localhost:4003` and removes the `/api/finance` prefix.
-
-Finance service API version:
-`/api/v1/finance`
-
-Example browser request:
-`GET http://localhost:5173/api/finance/api/v1/finance/invoices`
-
-The proxy forwards it to:
-`GET http://localhost:4003/api/v1/finance/invoices`
-
-This avoids the Finance module depending on the gateway while you are testing the Finance service locally.
-
-## Run
-
-From this folder:
+With the whole system running (`docker compose up` from the repo root):
 
 ```powershell
 npm install
 npm run dev
 ```
 
-Open:
-
-`http://localhost:5173`
-
-The ERP backend/Gateway should be running separately with Docker Compose.
+Open http://localhost:5173/finance/. Vite forwards `/api` and `/auth` to the gateway on port 3000.

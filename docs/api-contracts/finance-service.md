@@ -2,6 +2,8 @@
 
 All finance amounts are in **FCFA**.
 
+Called through the gateway (`http://localhost:3000`) with `Authorization: Bearer <token>`. The service reads the caller from the gateway's `x-user-id` / `x-user-role` headers: `401` without them, `403` unless the role is `SUPER_ADMIN`, `ADMIN` or `STAFF`. Errors are `{ "error": { "code", "message" } }`. The web pages are served at `/finance/` (built from `client-app/`).
+
 ## REST endpoints
 
 | Method | Path | Request body / query | Purpose |
@@ -27,7 +29,7 @@ All finance amounts are in **FCFA**.
 
 | Event | Payload | Action |
 |---|---|---|
-| `academic.student.enrolled` | `eventId?, studentId, academicYear, amount, dueDate?` | Creates a tuition invoice |
+| `academic.student.enrolled` | `studentId, courseId, semesterId, tuitionAmount` (also accepts `eventId`, `amount`, `academicYear`, `dueDate`) | Creates a tuition invoice of `tuitionAmount` due in 30 days. Idempotent: one invoice per `eventId`, or per student + course + semester when there is none. |
 
 ### Publishes
 
