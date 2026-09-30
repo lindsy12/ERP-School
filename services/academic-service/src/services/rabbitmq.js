@@ -20,7 +20,7 @@ const amqp = require('amqplib');
 // and if the connection drops, forget it so the *next* publish tries to reconnect.
 // No background retry loop, which keeps this easy to reason about.
 
-const EXCHANGE = 'school-events';
+const EXCHANGE = 'erp.events';
 
 // If the broker host is unreachable, give up after this long instead of hanging the request.
 const CONNECT_TIMEOUT_MS = 5000;
@@ -136,3 +136,4 @@ module.exports = {
   connect,
   publishEvent,
 };
+
