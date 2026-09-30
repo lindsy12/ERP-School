@@ -1,4 +1,5 @@
 // Builds the Express app without starting it, so tests can use it directly.
+const path = require('path');
 const express = require('express');
 const swaggerUi = require('swagger-ui-express');
 const healthRoutes = require('./routes/health.routes');
@@ -13,6 +14,10 @@ app.disable('x-powered-by');
 app.use(express.json({ limit: '10kb' }));
 
 app.use('/health', healthRoutes);
+
+// The sign-in page, account page and user admin (plain HTML/CSS/JS, no build step). The gateway
+// forwards GET /auth/* here without a token check (uiPrefix in gateway/src/config/services.js).
+app.use('/auth', express.static(path.join(__dirname, '..', 'client')));
 
 app.get('/api/v1/auth/openapi.json', (req, res) => res.json(openapiSpec));
 app.use('/api/v1/auth/docs', swaggerUi.serve, swaggerUi.setup(openapiSpec));

@@ -25,21 +25,19 @@ jobs:
           - services/hr-service
           - services/notification-service
           - gateway
-    # hr-service's tests run against a real MySQL rather than an in-memory
-    # SQLite fallback (no native node-gyp build required, dialect matches
-    # prod) — see services/hr-service/README.md. Other services can point
-    # their own tests at this same instance with a different DB_NAME, or
-    # ignore it entirely if they don't need a DB in tests yet.
+    # A fresh, throwaway MySQL container per matrix run (each service in the matrix gets its
+    # own isolated instance — this is not shared between services). Only MYSQL_ROOT_PASSWORD
+    # is needed here; each service's own test setup creates whatever database/schema it needs
+    # once connected, so no single pre-created database name has to match every service.
     services:
       mysql:
         image: mysql:8
         env:
           MYSQL_ROOT_PASSWORD: rootpass
-          MYSQL_DATABASE: hr_db_test
         ports:
           - 3306:3306
         options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -prootpass"
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -prootpass"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=10
@@ -80,6 +78,12 @@ jobs:
         if: steps.check.outputs.present == 'true'
         working-directory: ${{ matrix.service }}
         run: npm test
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_USER: root
+          DB_PASSWORD: rootpass
+          TEST_DB_NAME: academic_db_test
 
   build:
     needs: test

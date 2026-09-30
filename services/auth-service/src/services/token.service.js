@@ -50,7 +50,21 @@ function generateRefreshToken() {
   };
 }
 
+// The value for users.tokens_valid_after: access tokens issued before it are rejected. A JWT's iat
+// is in whole seconds, so this is rounded down to a whole second too; otherwise the tokens issued
+// right after a password change, in the same second, would be rejected as well.
+function revocationCutoff(now = new Date()) {
+  return new Date(Math.floor(now.getTime() / 1000) * 1000);
+}
+
+// True if these claims were issued before the user's cut-off.
+function issuedBeforeCutoff(claims, tokensValidAfter) {
+  return Boolean(tokensValidAfter) && claims.iat * 1000 < new Date(tokensValidAfter).getTime();
+}
+
 module.exports = {
+  revocationCutoff,
+  issuedBeforeCutoff,
   accessTokenTtlSeconds,
   signAccessToken,
   verifyAccessToken,

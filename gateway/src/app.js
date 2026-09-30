@@ -9,7 +9,7 @@ const stripIdentityHeaders = require('./middleware/stripIdentityHeaders');
 const requestId = require('./middleware/requestId');
 const requestLogger = require('./middleware/requestLogger');
 const authenticate = require('./middleware/authenticate');
-const { requireAuth } = require('./middleware/authenticate');
+const { requireAuth, isPublic } = require('./middleware/authenticate');
 const createRateLimiters = require('./middleware/rateLimiters');
 const serviceProxy = require('./middleware/serviceProxy');
 const healthRoutes = require('./routes/health.routes');
@@ -35,6 +35,12 @@ function createApp({
   // Which address is "the client"? See TRUST_PROXY in .env.example and docs/scaling-strategy.md.
   app.set('trust proxy', trustProxy);
 
+  // Each service's web pages are public (see uiPrefix in config/services.js).
+  const uiRoutes = services
+    .filter((service) => service.uiPrefix)
+    .flatMap((service) => ['GET', 'HEAD'].map((method) => ({ method, prefix: service.uiPrefix })));
+  const isUiRequest = (req) => isPublic(req, uiRoutes);
+
   const { authLimiter, globalLimiter } = createRateLimiters({
     windowMs: rateLimitWindowMs,
     max: rateLimitMax,
@@ -46,7 +52,16 @@ function createApp({
   app.use(stripIdentityHeaders);
   app.use(requestId);
   app.use(requestLogger({ write: logWrite }));
-  app.use(helmet());
+  // Default helmet, minus upgrade-insecure-requests: over plain HTTP on a school network
+  // (http://192.168.x.x:3000) it makes browsers ask for every script over HTTPS and pages break.
+  // Put it back once the site is served over HTTPS.
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: { ...helmet.contentSecurityPolicy.getDefaultDirectives(), 'upgrade-insecure-requests': null },
+      },
+    }),
+  );
   // CORS before authentication: browser preflight (OPTIONS) requests never carry a token.
   app.use(
     cors({
@@ -55,12 +70,21 @@ function createApp({
       maxAge: 600,
     }),
   );
+  // The site's front door is the sign-in page.
+  app.get('/', (req, res) => res.redirect(302, '/auth/'));
+  // Page files (HTML/CSS/JS) don't use up the global limit: one page load is a dozen files, and a
+  // whole school behind one IP would otherwise run out after a few clicks.
+  app.use((req, res, next) => {
+    if (isUiRequest(req)) req.skipGlobalRateLimit = true;
+    next();
+  });
+
   // 2. Strict per-IP limits on the routes that accept passwords / refresh tokens.
   app.post('/api/v1/auth/login', authLimiter('login'));
   app.post('/api/v1/auth/refresh', authLimiter('refresh'));
 
   // 3. Work out who the caller is (valid token -> req.user + identity headers)...
-  app.use(authenticate({ verifyUrl, timeoutMs: verifyTimeoutMs, publicRoutes }));
+  app.use(authenticate({ verifyUrl, timeoutMs: verifyTimeoutMs, publicRoutes: [...publicRoutes, ...uiRoutes] }));
   // 4. ...count the request per user (or per IP, including requests with bad tokens)...
   app.use(globalLimiter);
   // 5. ...and only then reject the ones without a valid token.

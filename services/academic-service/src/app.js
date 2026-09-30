@@ -6,6 +6,14 @@ const programRoutes = require('./routes/programRoutes');
 const courseRoutes = require('./routes/courseRoutes');
 const enrollmentRoutes = require('./routes/enrollmentRoutes');
 const studentRoutes = require('./routes/studentRoutes');
+const studentRecordRoutes = require('./routes/studentRecordRoutes');
+const sessionRoutes = require('./routes/sessionRoutes');
+const attendanceRoutes = require('./routes/attendanceRoutes');
+const gradeRoutes = require('./routes/gradeRoutes');
+const atRiskRoutes = require('./routes/atRiskRoutes');
+const examRoutes = require('./routes/examRoutes');
+const appealRoutes = require('./routes/appealRoutes');
+const transcriptRoutes = require('./routes/transcriptRoutes');
 const rabbitmq = require('./services/rabbitmq');
 
 const app = express();
@@ -26,6 +34,17 @@ app.use('/api/v1/programs', programRoutes);
 app.use('/api/v1/courses', courseRoutes);
 app.use('/api/v1/enrollments', enrollmentRoutes);
 app.use('/api/v1/students', studentRoutes);
+// Second router on the same path: requests that studentRoutes doesn't match fall through here.
+app.use('/api/v1/students', studentRecordRoutes);
+app.use('/api/v1/sessions', sessionRoutes);
+app.use('/api/v1/attendance', attendanceRoutes);
+app.use('/api/v1/grades', gradeRoutes);
+app.use('/api/v1/exams', examRoutes);
+// Holds full paths (/students/:studentId/at-risk and /at-risk-students), so it's mounted at /api/v1.
+app.use('/api/v1', atRiskRoutes);
+// Also hold full paths (/grades/:gradeId/appeals, /appeals/..., /students/:studentId/transcript/pdf).
+app.use('/api/v1', appealRoutes);
+app.use('/api/v1', transcriptRoutes);
 
 // Error handler for errors thrown outside our controllers' try/catch, most commonly
 // malformed JSON caught by express.json(). Without this, Express replies with an HTML

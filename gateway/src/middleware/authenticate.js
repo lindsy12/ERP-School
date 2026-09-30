@@ -23,10 +23,14 @@ const AUTH_UNAVAILABLE = {
   message: 'Authentication service is unavailable, please try again later',
 };
 
+// A route has either an exact `path`, or a `prefix` that matches whole path segments
+// ("/hr" matches "/hr" and "/hr/js/app.js", not "/hrx").
 function isPublic(req, publicRoutes) {
-  return publicRoutes.some(
-    (route) => (route.method === '*' || route.method === req.method) && route.path === req.path,
-  );
+  return publicRoutes.some((route) => {
+    if (route.method !== '*' && route.method !== req.method) return false;
+    if (route.prefix) return req.path === route.prefix || req.path.startsWith(`${route.prefix}/`);
+    return route.path === req.path;
+  });
 }
 
 // Returns { identity } on success or { error: { status, code, message } }.

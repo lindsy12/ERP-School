@@ -19,6 +19,23 @@ describe('unknown routes', () => {
   });
 });
 
+describe('web pages', () => {
+  it('serves the sign-in page at /auth/', async () => {
+    const res = await request(app).get('/auth/');
+
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toMatch(/text\/html/);
+    expect(res.text).toContain('js/app.js');
+  });
+
+  it('serves the shared session module other modules import', async () => {
+    const res = await request(app).get('/auth/js/session.js');
+
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toMatch(/javascript/);
+  });
+});
+
 describe('OpenAPI docs', () => {
   it('lists the auth endpoints', async () => {
     const res = await request(app).get('/api/v1/auth/openapi.json');

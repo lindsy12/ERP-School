@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Exam Scheduling — UniERP</title>
+<style>
+  /* ============================================================
+     SHARED DESIGN SYSTEM — copied verbatim from student-portal.html.
+     Keep in sync with that file; page-specific styles are further down.
+     ============================================================ */
+  :root {
+    --sidebar-w: 226px;
+    --sidebar-w-collapsed: 74px;
+
+    --bg: #F4F6FA;
+    --panel: #FFFFFF;
+    --text: #1B1F27;
+    --text-muted: #7C8194;
+    --border: #E7E9F0;
+
+    --brand: #2563EB;
+    --brand-dark: #1D4ED8;
+    --brand-soft: #DBEAFE;
+    --brand-text: #1D4ED8;
+
+    --green: #16A34A; --green-bg: #DCFCE7;
+    --red: #DC2626; --red-bg: #FEE2E2;
+    --amber: #D97706; --amber-bg: #FEF3C7;
+
+    --radius: 12px;
+    --shadow: 0 1px 2px rgba(20,20,30,0.04), 0 2px 10px rgba(20,20,30,0.05);
+  }
+
+  * { box-sizing: border-box; }
+  @media (prefers-reduced-motion: reduce) { *,*::before,*::after{ animation-duration:.01ms!important; transition-duration:.01ms!important; } }
+
+  body { margin: 0; font-family: 'Inter', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); display: flex; min-height: 100vh; }
+  a { color: inherit; }
+  :focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar { width: var(--sidebar-w); background: var(--panel); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; padding: 18px 12px; position: sticky; top: 0; height: 100vh; transition: width .18s ease; }
+  .sidebar.collapsed { width: var(--sidebar-w-collapsed); }
+  .sidebar-head { display: flex; align-items: center; justify-content: space-between; padding: 2px 8px 18px; margin-bottom: 6px; }
+  .brand { display: flex; align-items: center; gap: 9px; font-weight: 800; font-size: 1.05rem; white-space: nowrap; overflow: hidden; letter-spacing: -0.01em; }
+  .brand-mark { width: 28px; height: 28px; border-radius: 8px; background: linear-gradient(135deg, var(--brand), var(--brand-dark)); flex-shrink: 0; display:flex; align-items:center; justify-content:center; color:#fff; font-size:.8rem; font-weight:800; }
+  .sidebar.collapsed .brand-label { display: none; }
+  .collapse-btn { width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--border); background: var(--panel); cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text-muted); flex-shrink: 0; }
+  .collapse-btn:hover { background: var(--bg); }
+  .sidebar.collapsed .collapse-btn svg { transform: rotate(180deg); }
+
+  .nav-section-label { font-size: .7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; padding: 14px 12px 6px; }
+  .sidebar.collapsed .nav-section-label { display: none; }
+
+  .nav-item { display: flex; align-items: center; gap: 11px; padding: 9px 12px; color: var(--text-muted); text-decoration: none; font-size: .89rem; border-radius: 9px; cursor: pointer; background: none; border: none; width: 100%; text-align: left; font-family: inherit; margin-bottom: 1px; white-space: nowrap; overflow: hidden; }
+  .nav-item svg { flex-shrink: 0; width: 18px; height: 18px; }
+  .nav-item:hover { background: var(--bg); color: var(--text); }
+  .nav-item.active { background: var(--brand-soft); color: var(--brand-text); font-weight: 600; }
+  .sidebar.collapsed .nav-label { display: none; }
+  .sidebar.collapsed .nav-item { justify-content: center; }
+  .sidebar-footer { margin-top: auto; padding-top: 12px; border-top: 1px solid var(--border); }
+
+  /* ---------- Main / Topbar ---------- */
+  .main { flex: 1; min-width: 0; }
+  .topbar { display: flex; align-items: center; gap: 14px; padding: 16px 28px; background: var(--panel); border-bottom: 1px solid var(--border); }
+  .search-wrap { flex: 1; display: flex; gap: 8px; max-width: 560px; }
+  .search-input { flex: 1; padding: 9px 13px; border: 1px solid var(--border); border-radius: 9px; font-size: .87rem; font-family: inherit; background: var(--bg); }
+  .module-select { padding: 9px 11px; border: 1px solid var(--border); border-radius: 9px; font-size: .85rem; font-family: inherit; background: var(--bg); color: var(--text-muted); }
+  .search-btn { padding: 9px 16px; border-radius: 9px; border: none; background: var(--text); color: #fff; font-size: .85rem; font-weight: 600; cursor: pointer; }
+
+  .topbar-right { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+  .icon-btn { width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--border); background: var(--panel); display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-muted); position: relative; }
+  .icon-btn:hover { background: var(--bg); }
+  .icon-btn .dot { position: absolute; top: 7px; right: 7px; width: 7px; height: 7px; background: var(--red); border-radius: 50%; border: 1.5px solid #fff; }
+  .user-chip { display: flex; align-items: center; gap: 8px; padding: 5px 10px 5px 5px; border-radius: 10px; cursor: pointer; }
+  .user-chip:hover { background: var(--bg); }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--brand-soft); color: var(--brand-text); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: .78rem; flex-shrink: 0; }
+  .user-name { font-size: .85rem; font-weight: 600; white-space: nowrap; }
+
+  .breadcrumb { padding: 12px 28px; font-size: .82rem; color: var(--text-muted); background: var(--bg); }
+  .breadcrumb b { color: var(--text); font-weight: 600; }
+
+  .content { padding: 20px 28px 32px; }
+  .view { display: none; animation: fadeIn .2s ease; }
+  .view.active { display: block; }
+  @keyframes fadeIn { from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:translateY(0);} }
+
+  .page-heading { display:flex; align-items:center; gap:10px; margin: 2px 0 18px; }
+  .page-heading svg { color: var(--brand); width:22px; height:22px; }
+  .page-heading h1 { font-size: 1.32rem; font-weight: 800; margin: 0; letter-spacing: -0.01em; }
+
+  .stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px; }
+  @media (max-width: 560px) { .stat-row { grid-template-columns: 1fr; } }
+  .stat-card { border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); }
+  .stat-card.brand-fill { background: linear-gradient(135deg, var(--brand), var(--brand-dark)); color: #fff; }
+  .stat-label { font-size: .8rem; font-weight: 600; opacity: .85; margin-bottom: 6px; }
+  .stat-number { font-size: 2.2rem; font-weight: 800; line-height: 1; letter-spacing: -0.02em; }
+  .stat-unit { font-size: .95rem; opacity: .7; font-weight: 500; }
+  .stat-note { margin-top: 7px; font-size: .8rem; opacity: .75; }
+
+  .section-title { font-size: 1rem; font-weight: 700; margin: 4px 0 12px; }
+
+  /* ---------- Course banner colours ---------- */
+  .course-banner { position: relative; height: 84px; display: flex; align-items: flex-start; justify-content: flex-end; padding: 8px; }
+  .course-banner.b1 { background: linear-gradient(135deg,#F472B6,#DB2777); }
+  .course-banner.b2 { background: linear-gradient(135deg,#2DD4BF,#0D9488); }
+  .course-banner.b3 { background: linear-gradient(135deg,#FBBF24,#B45309); }
+  .course-banner.b4 { background: linear-gradient(135deg,#60A5FA,#2563EB); }
+  .course-banner.b5 { background: linear-gradient(135deg,#818CF8,#4F46E5); }
+
+  /* ---------- Panels / tables (shared) ---------- */
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); margin-bottom: 16px; }
+  .panel-title { font-size: .98rem; font-weight: 700; margin: 0 0 4px; }
+  .panel-sub { font-size: .82rem; color: var(--text-muted); margin-bottom: 16px; }
+
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-size: .72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: .02em; padding: 10px; background: var(--bg); border-bottom: 1px solid var(--border); }
+  th:first-child { border-radius: 8px 0 0 8px; } th:last-child { border-radius: 0 8px 8px 0; }
+  td { padding: 12px 10px; border-bottom: 1px solid var(--border); font-size: .87rem; }
+  tr:last-child td { border-bottom: none; }
+
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: .74rem; font-weight: 700; }
+  .badge-green { background: var(--green-bg); color: var(--green); }
+  .badge-red { background: var(--red-bg); color: var(--red); }
+  .badge-amber { background: var(--amber-bg); color: var(--amber); }
+  .badge-blue { background: var(--brand-soft); color: var(--brand-text); }
+
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 15px; border-radius: 9px; border: none; font-size: .84rem; font-weight: 700; cursor: pointer; font-family: inherit; }
+  .btn-primary { background: var(--brand); color: #fff; }
+  .btn-primary:hover { background: var(--brand-dark); }
+  .btn-outline { background: var(--panel); border: 1px solid var(--border); color: var(--text); }
+  .btn-outline:hover { border-color: var(--brand); color: var(--brand-text); }
+  .btn-sm { padding: 5px 11px; font-size: .76rem; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+  input, select, textarea { padding: 8px 11px; border: 1px solid var(--border); border-radius: 8px; font-size: .87rem; font-family: inherit; width: 100%; background: var(--panel); }
+  label { display: block; font-size: .78rem; font-weight: 600; margin-bottom: 5px; color: var(--text-muted); }
+
+  /* ============================================================
+     PAGE-SPECIFIC — built only from the tokens above.
+     ============================================================ */
+
+  [hidden] { display: none !important; }
+
+  /* FIX for a bug inherited from student-portal.html: the global `input, select { width: 100% }` rule
+     makes the module <select> fill the search bar and squashes the search input to ~28px.
+     The portal has the same bug; apply this same fix there when it's next edited. */
+  .search-wrap .search-input { width: auto; min-width: 0; }
+  .search-wrap .module-select { width: auto; flex: 0 0 auto; }
+
+  /* Inline messages: same look as the portal's .prereq-warning / .enroll-success. */
+  .alert { font-size: .8rem; padding: 9px 12px; border-radius: 8px; margin-top: 12px; line-height: 1.45; }
+  .alert-error { background: var(--red-bg); color: var(--red); }
+  .alert-success { background: var(--green-bg); color: var(--green); }
+  .alert b { font-weight: 700; }
+
+  .stat-row.three { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 900px) { .stat-row.three { grid-template-columns: 1fr; } }
+  .stat-card.plain { background: var(--panel); border: 1px solid var(--border); }
+  .stat-card.plain .stat-label, .stat-card.plain .stat-note { color: var(--text-muted); opacity: 1; }
+  .stat-number.small { font-size: 1.25rem; line-height: 1.3; }
+
+  .form-grid { display: grid; grid-template-columns: 2fr 1.2fr 1.1fr .8fr .8fr 1.1fr; gap: 12px; align-items: end; }
+  @media (max-width: 1150px) { .form-grid { grid-template-columns: 1fr 1fr 1fr; } }
+  @media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } }
+  .form-grid input, .form-grid select { height: 38px; } /* date/time inputs otherwise render taller */
+  .form-actions { display: flex; align-items: center; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
+  .form-hint { font-size: .78rem; color: var(--text-muted); }
+  .field-invalid { border-color: var(--red); }
+
+  /* The 409 conflict list */
+  .conflict-list { list-style: none; margin: 8px 0 4px; padding: 0; }
+  .conflict-list li { display: flex; align-items: center; gap: 10px; padding: 7px 10px; background: var(--panel); border-radius: 8px; margin-bottom: 6px; color: var(--text); font-size: .82rem; flex-wrap: wrap; }
+  .conflict-list .time { font-weight: 700; color: var(--red); }
+
+  /* Small course colour marker, using the same b1–b5 gradients as the course tiles */
+  .course-swatch { width: 6px; height: 28px; padding: 0; border-radius: 4px; flex-shrink: 0; }
+  .course-cell { display: flex; align-items: center; gap: 10px; }
+  .course-cell .code { font-weight: 700; }
+  .course-cell .title { font-size: .78rem; color: var(--text-muted); }
+
+  .filter-bar { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; margin-bottom: 14px; }
+  .filter-bar > div { min-width: 190px; }
+  .filter-bar .count { margin-left: auto; font-size: .8rem; color: var(--text-muted); padding-bottom: 9px; }
+
+  .table-wrap { overflow-x: auto; }
+  tr.conflict-row td { background: var(--red-bg); }
+  tr.new-row td { background: var(--green-bg); transition: background 1.5s ease; }
+  .row-actions { text-align: right; white-space: nowrap; }
+  .btn.confirming { background: var(--red); border-color: var(--red); color: #fff; }
+  .muted { color: var(--text-muted); }
+  .empty-state { text-align: center; color: var(--text-muted); padding: 28px 10px; font-size: .87rem; }
+  .loading { color: var(--text-muted); font-size: .84rem; }
+</style>
+</head>
+<body>
+
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-head">
+    <div class="brand"><div class="brand-mark">U</div><span class="brand-label">UniERP</span></div>
+    <button class="collapse-btn" onclick="toggleSidebar()" title="Collapse sidebar">
+      <svg viewBox="0 0 20 20" fill="none" width="14" height="14"><path d="M12 4l-6 6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+  </div>
+
+  <div class="nav-section-label">Administration</div>
+  <button class="nav-item" data-view="dashboard" onclick="showView('dashboard')">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M3 12l9-9 9 9M5 10v10h5v-6h4v6h5V10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span class="nav-label">Dashboard</span>
+  </button>
+  <button class="nav-item" data-view="courses" onclick="showView('courses')">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M4 19.5V6a2 2 0 012-2h12a2 2 0 012 2v13.5M4 19.5A2.5 2.5 0 016.5 17H20M4 19.5A2.5 2.5 0 006.5 22H20v-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span class="nav-label">Courses</span>
+  </button>
+  <button class="nav-item active" data-view="exams" onclick="showView('exams')">
+    <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M3 10h18M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M9 15l2 2 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span class="nav-label">Exams</span>
+  </button>
+
+  <div class="sidebar-footer">
+    <button class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="nav-label">Log out</span>
+    </button>
+  </div>
+</nav>
+
+<div class="main">
+  <div class="topbar">
+    <div class="search-wrap">
+      <input class="search-input" placeholder="Search courses, exams, rooms..." aria-label="Search">
+      <select class="module-select" aria-label="Module">
+        <option>All Modules</option>
+        <option>Courses</option>
+        <option>Exams</option>
+      </select>
+      <button class="search-btn">Search</button>
+    </div>
+    <div class="topbar-right">
+      <button class="icon-btn" title="Notifications">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="dot"></span>
+      </button>
+      <div class="user-chip">
+        <div class="avatar" id="topAvatar"></div>
+        <span class="user-name" id="topName"></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="breadcrumb" id="breadcrumb"><b>Home</b> &nbsp;›&nbsp; Exams</div>
+
+  <div class="content">
+
+    <!-- ========== DASHBOARD ========== -->
+    <div class="view" id="view-dashboard">
+      <div class="stat-row three" id="dashStats"><div class="loading">Loading…</div></div>
+      <div class="panel">
+        <div class="panel-title">Upcoming exams</div>
+        <div class="panel-sub">The next five scheduled exams across all rooms.</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Course</th><th>Date</th><th>Time</th><th>Room</th></tr></thead>
+            <tbody id="upcomingRows"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== COURSES ========== -->
+    <div class="view" id="view-courses">
+      <div class="panel">
+        <div class="panel-title">Course catalog</div>
+        <div class="panel-sub">All courses, with how many exams each has scheduled.</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Course</th><th>Credits</th><th>Exams scheduled</th><th></th></tr></thead>
+            <tbody id="courseRows"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== EXAMS ========== -->
+    <div class="view active" id="view-exams">
+      <div class="page-heading">
+        <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M3 10h18M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M9 15l2 2 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <h1>Exam Scheduling</h1>
+      </div>
+
+      <form class="panel" id="examForm" novalidate>
+        <div class="panel-title">Schedule an exam</div>
+        <div class="panel-sub">Two exams clash if they're in the same room on the same day and their times overlap. Back-to-back is fine: one can start exactly when another ends.</div>
+        <div class="form-grid">
+          <div><label for="fCourse">Course</label><select id="fCourse" required></select></div>
+          <div><label for="fSemester">Semester</label><select id="fSemester" required></select></div>
+          <div><label for="fDate">Date</label><input type="date" id="fDate" required></div>
+          <div><label for="fStart">Start</label><input type="time" id="fStart" required></div>
+          <div><label for="fEnd">End</label><input type="time" id="fEnd" required></div>
+          <div><label for="fRoom">Room</label><input type="text" id="fRoom" list="roomList" maxlength="50" placeholder="e.g. Hall A" required autocomplete="off"><datalist id="roomList"></datalist></div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" type="submit" id="fSubmit">Schedule exam</button>
+          <span class="form-hint" id="fHint"></span>
+        </div>
+        <div class="alert alert-error" id="formError" role="alert" hidden></div>
+        <div class="alert alert-success" id="formSuccess" role="status" hidden></div>
+      </form>
+
+      <div class="panel">
+        <div class="panel-title">Scheduled exams</div>
+        <div class="filter-bar">
+          <div><label for="filterSemester">Semester</label><select id="filterSemester"></select></div>
+          <div><label for="filterCourse">Course</label><select id="filterCourse"></select></div>
+          <span class="count" id="examCount"></span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Course</th><th>Semester</th><th>Date</th><th>Time</th><th>Room</th><th></th></tr></thead>
+            <tbody id="examRows"><tr><td colspan="6" class="loading">Loading…</td></tr></tbody>
+          </table>
+        </div>
+        <div class="alert alert-success" id="tableSuccess" role="status" hidden></div>
+        <div class="alert alert-error" id="tableError" role="alert" hidden></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   CONFIG
+   The Academic Service is called directly until the gateway is ready.
+   When it is, change this one line (e.g. to 'http://localhost:3000').
+   ============================================================ */
+const GATEWAY_URL = 'http://localhost:4002';
+
+/* ============================================================
+   FAKE DATA + FAKE API — delete this whole block when switching to the
+   real backend, and un-comment the real apiCall() at the bottom of this file.
+
+   Every screen talks to the backend ONLY through apiCall(method, path, body),
+   which resolves to { status, data } exactly like the real one will. The fake
+   version applies the same rules as examController: validation, the
+   date-inside-semester check, and the overlap rule. A clash returns 409 with
+   { error, conflicts: Exam[] }, just like the real endpoint.
+
+   Routes marked "⚠ NO ENDPOINT YET" do not exist in the backend.
+   ============================================================ */
+
+const FAKE_LATENCY_MS = 250;
+
+const FAKE = {
+  // ⚠ No auth yet — the logged-in admin will come from the Auth service.
+  admin: { name: 'Béatrice Ekane', role: 'Academic Affairs' },
+
+  // ⚠ NO ENDPOINT YET for listing semesters.
+  semesters: [
+    { id: 3, name: 'Spring 2026', start_date: '2026-01-12', end_date: '2026-05-22' },
+    { id: 4, name: 'Fall 2026',   start_date: '2026-09-01', end_date: '2026-12-20' },
+    { id: 5, name: 'Spring 2027', start_date: '2027-01-15', end_date: '2027-05-20' },
+  ],
+
+  // Same shape as GET /api/v1/courses.
+  courses: [
+    [3, 'CS201', 'Data Structures', 4], [4, 'CS210', 'Computer Architecture', 3], [5, 'CS220', 'Discrete Mathematics II', 3],
+    [6, 'CS310', 'Operating Systems', 4], [7, 'CS301', 'Database Systems', 4], [8, 'CS330', 'Human-Computer Interaction', 3],
+    [9, 'CS350', 'Computer Networks', 4], [12, 'CS340', 'Software Engineering', 3], [15, 'CS410', 'Distributed Systems', 4],
+    [16, 'MA201', 'Calculus II', 3],
+  ].map(([id, code, title, credit_hours]) => ({ id, program_id: 1, code, title, description: null, credit_hours, created_at: '2026-01-05T08:00:00.000Z' })),
+
+  // Stored exam rows; the API view adds course/semester names.
+  exams: [
+    [1, 7, 4, '2026-12-07', '09:00', '12:00', 'Hall A'], [2, 6, 4, '2026-12-07', '13:00', '16:00', 'Hall A'],
+    [3, 5, 4, '2026-12-08', '09:00', '11:00', 'Hall B'], [4, 12, 4, '2026-12-08', '09:00', '11:00', 'Lab 2'],
+    [5, 9, 4, '2026-12-09', '14:00', '17:00', 'Hall A'], [6, 8, 4, '2026-12-10', '10:00', '12:00', 'Room C3'],
+    [7, 16, 4, '2026-12-10', '09:00', '11:30', 'Hall B'], [8, 15, 4, '2026-12-11', '09:00', '12:00', 'Hall A'],
+    [9, 3, 3, '2026-05-12', '09:00', '12:00', 'Hall A'], [10, 4, 3, '2026-05-13', '13:00', '15:00', 'Hall B'],
+  ].map(([id, course_id, semester_id, exam_date, s, e, room]) =>
+    ({ id, course_id, semester_id, exam_date, start_time: s + ':00', end_time: e + ':00', room, created_at: '2026-09-20T10:00:00.000Z' })),
+  nextExamId: 11,
+};
+
+function fakeApi(method, path, body) {
+  const url = new URL(path, 'http://fake.local');
+  const p = url.pathname, q = url.searchParams;
+  const reply = (status, data) => new Promise(resolve =>
+    setTimeout(() => resolve({ status, data: data === undefined ? null : JSON.parse(JSON.stringify(data)) }), FAKE_LATENCY_MS));
+  const err = (status, error, extra = {}) => reply(status, { error, ...extra });
+  const posInt = (v) => { const n = Number(v); return Number.isInteger(n) && n > 0 ? n : null; };
+  const toTime = (v) => { const m = /^([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?$/.exec(v || ''); return m ? `${m[1]}:${m[2]}:${m[3] ?? '00'}` : null; };
+  const isDate = (v) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && new Date(v + 'T00:00:00Z').toISOString().slice(0, 10) === v;
+  const view = (e) => {
+    const c = FAKE.courses.find(x => x.id === e.course_id), s = FAKE.semesters.find(x => x.id === e.semester_id);
+    return { id: e.id, course_id: c.id, course_code: c.code, course_title: c.title, semester_id: s.id, semester_name: s.name,
+      exam_date: e.exam_date, start_time: e.start_time, end_time: e.end_time, room: e.room, created_at: e.created_at };
+  };
+  const timetableOrder = (a, b) => (a.exam_date + a.start_time + a.room).localeCompare(b.exam_date + b.start_time + b.room);
+  // Rooms compare like the MySQL column: case-insensitive, surrounding spaces ignored.
+  const sameRoom = (a, b) => a.trim().toLowerCase() === b.trim().toLowerCase();
+  let m;
+
+  // GET /api/v1/courses — exists.
+  if (method === 'GET' && p === '/api/v1/courses') return reply(200, FAKE.courses);
+
+  // ⚠ NO ENDPOINT YET — proposed: GET /api/v1/semesters
+  if (method === 'GET' && p === '/api/v1/semesters') return reply(200, FAKE.semesters);
+
+  // GET /api/v1/exams?semesterId=&courseId= — exists. A malformed filter is a 400, like the backend.
+  if (method === 'GET' && p === '/api/v1/exams') {
+    const filters = {};
+    for (const name of ['semesterId', 'courseId']) {
+      if (!q.has(name)) continue;
+      const id = posInt(q.get(name));
+      if (!id) return err(400, `${name} must be a positive integer`);
+      filters[name] = id;
+    }
+    return reply(200, FAKE.exams
+      .filter(e => (!filters.semesterId || e.semester_id === filters.semesterId) && (!filters.courseId || e.course_id === filters.courseId))
+      .map(view).sort(timetableOrder));
+  }
+
+  // POST /api/v1/exams — exists. Same checks, messages and 409 body as examController.createExam.
+  if (method === 'POST' && p === '/api/v1/exams') {
+    const missing = ['courseId', 'semesterId', 'examDate', 'startTime', 'endTime', 'room'].filter(f => body?.[f] === undefined || body?.[f] === null || body?.[f] === '');
+    if (missing.length) return err(400, `Missing required field(s): ${missing.join(', ')}`);
+    const courseId = posInt(body.courseId), semesterId = posInt(body.semesterId);
+    if (!courseId) return err(400, 'courseId must be a positive integer');
+    if (!semesterId) return err(400, 'semesterId must be a positive integer');
+    if (!isDate(body.examDate)) return err(400, 'examDate must be a valid date in YYYY-MM-DD format');
+    const st = toTime(body.startTime), et = toTime(body.endTime);
+    if (!st || !et) return err(400, 'startTime and endTime must be 24-hour times like "09:00" or "09:00:00"');
+    if (et <= st) return err(400, 'endTime must be after startTime');
+    if (typeof body.room !== 'string' || !body.room.trim()) return err(400, 'room must be a non-empty string');
+    const room = body.room.trim();
+    if (room.length > 50) return err(400, 'room must be at most 50 characters');
+    if (!FAKE.courses.some(c => c.id === courseId)) return err(400, `courseId ${courseId} does not exist`);
+    const sem = FAKE.semesters.find(s => s.id === semesterId);
+    if (!sem) return err(400, `semesterId ${semesterId} does not exist`);
+    if (body.examDate < sem.start_date || body.examDate > sem.end_date)
+      return err(400, `examDate ${body.examDate} is outside ${sem.name} (${sem.start_date} to ${sem.end_date})`);
+    // Overlap rule: [s1, e1) and [s2, e2) overlap when s1 < e2 AND s2 < e1.
+    const conflicts = FAKE.exams.filter(e => sameRoom(e.room, room) && e.exam_date === body.examDate && st < e.end_time && e.start_time < et)
+      .map(view).sort((a, b) => a.start_time.localeCompare(b.start_time));
+    if (conflicts.length) {
+      const list = conflicts.map(e => `${e.course_code} ${e.start_time.slice(0, 5)}-${e.end_time.slice(0, 5)} (exam ${e.id})`).join(', ');
+      return err(409, `Room "${room}" is already booked on ${body.examDate} at an overlapping time: ${list}. The exam was not saved.`, { conflicts });
+    }
+    const exam = { id: FAKE.nextExamId++, course_id: courseId, semester_id: semesterId, exam_date: body.examDate,
+      start_time: st, end_time: et, room, created_at: new Date().toISOString() };
+    FAKE.exams.push(exam);
+    return reply(201, view(exam));
+  }
+
+  // DELETE /api/v1/exams/:id — exists. 204 with no body, or 404.
+  if (method === 'DELETE' && (m = p.match(/^\/api\/v1\/exams\/(\d+)$/))) {
+    const i = FAKE.exams.findIndex(e => e.id === Number(m[1]));
+    if (i === -1) return err(404, `Exam ${m[1]} not found`);
+    FAKE.exams.splice(i, 1);
+    return reply(204);
+  }
+
+  return err(404, `Fake API has no route for ${method} ${p}`);
+}
+
+// The one swap point: every screen below calls apiCall(). See the bottom of the file.
+const apiCall = fakeApi;
+/* ===================== END FAKE DATA + FAKE API ===================== */
+
+
+/* ============================================================
+   HELPERS
+   ============================================================ */
+
+const $ = (id) => document.getElementById(id);
+
+// Escape anything that came from the API before putting it into innerHTML (room names are free text).
+function esc(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
+function initials(name) { return name.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase(); }
+
+// "2026-12-07" -> "Mon 7 Dec 2026". Built from local parts so the date never shifts by a day.
+function fmtDate(iso) {
+  const [y, mo, d] = iso.split('-').map(Number);
+  return new Date(y, mo - 1, d).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+}
+const fmtTime = (t) => String(t).slice(0, 5);
+const fmtRange = (e) => `${fmtTime(e.start_time)}–${fmtTime(e.end_time)}`;
+function todayIso() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+
+// Same course colours as the student portal: its courses keep their tiles, others get a stable pick.
+const PORTAL_BANNERS = { CS301: 'b1', CS310: 'b2', CS220: 'b3', CS340: 'b4' };
+function bannerFor(code) {
+  if (PORTAL_BANNERS[code]) return PORTAL_BANNERS[code];
+  let h = 0; for (const ch of code) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return 'b' + ((h % 5) + 1);
+}
+function courseCellHtml(code, title) {
+  return `<div class="course-cell"><span class="course-banner course-swatch ${bannerFor(code)}"></span>
+    <div><div class="code">${esc(code)}</div><div class="title">${esc(title)}</div></div></div>`;
+}
+
+function show(el, html) { el.innerHTML = html; el.hidden = false; }
+function hide(el) { el.hidden = true; el.innerHTML = ''; }
+
+// Wraps apiCall so a network failure becomes a readable message instead of an unhandled error.
+async function request(method, path, body) {
+  try {
+    return await apiCall(method, path, body);
+  } catch (e) {
+    return { status: 0, data: { error: `Couldn't reach the Academic Service at ${GATEWAY_URL}. Is it running?` } };
+  }
+}
+const errorText = (res) => res.data?.error || `Request failed (HTTP ${res.status})`;
+
+/* ============================================================
+   STATE
+   ============================================================ */
+
+const state = {
+  courses: [],
+  semesters: [],
+  exams: [],              // the currently filtered list shown in the table
+  allExams: [],           // unfiltered, for the dashboard, the courses view and the room suggestions
+  highlightIds: new Set(), // exam ids to highlight (conflicts in red, new exam in green)
+  highlightKind: null,
+};
+
+const currentSemester = () => {
+  const t = todayIso();
+  return state.semesters.find(s => s.start_date <= t && t <= s.end_date)
+    || state.semesters.filter(s => s.start_date > t).sort((a, b) => a.start_date.localeCompare(b.start_date))[0]
+    || state.semesters.at(-1);
+};
+
+/* ============================================================
+   SCHEDULE FORM
+   ============================================================ */
+
+function fillFormSelects() {
+  $('fCourse').innerHTML = '<option value="">Select a course…</option>' +
+    state.courses.map(c => `<option value="${c.id}">${esc(c.code)} — ${esc(c.title)}</option>`).join('');
+  $('fSemester').innerHTML = state.semesters.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
+  const cur = currentSemester();
+  if (cur) $('fSemester').value = String(cur.id);
+  syncDateBounds();
+}
+
+// Keep the date picker inside the chosen semester (the API rejects dates outside it).
+function syncDateBounds() {
+  const sem = state.semesters.find(s => s.id === Number($('fSemester').value));
+  $('fDate').min = sem?.start_date || '';
+  $('fDate').max = sem?.end_date || '';
+  $('fHint').textContent = sem ? `${sem.name} runs ${fmtDate(sem.start_date)} – ${fmtDate(sem.end_date)}.` : '';
+}
+
+function refreshRoomSuggestions() {
+  const rooms = [...new Set(state.allExams.map(e => e.room))].sort();
+  $('roomList').innerHTML = rooms.map(r => `<option value="${esc(r)}"></option>`).join('');
+}
+
+function markInvalid(ids) {
+  ['fCourse', 'fSemester', 'fDate', 'fStart', 'fEnd', 'fRoom'].forEach(id => {
+    const bad = ids.includes(id);
+    $(id).classList.toggle('field-invalid', bad);
+    $(id).setAttribute('aria-invalid', String(bad));
+  });
+}
+
+async function submitExam(event) {
+  event.preventDefault();
+  hide($('formError')); hide($('formSuccess'));
+  clearHighlights();
+
+  const body = {
+    courseId: Number($('fCourse').value) || null,
+    semesterId: Number($('fSemester').value) || null,
+    examDate: $('fDate').value,
+    startTime: $('fStart').value,
+    endTime: $('fEnd').value,
+    room: $('fRoom').value.trim(),
+  };
+
+  // Quick checks for a clear message next to the right field; the API re-checks everything.
+  const missing = [['fCourse', body.courseId, 'course'], ['fSemester', body.semesterId, 'semester'], ['fDate', body.examDate, 'date'],
+    ['fStart', body.startTime, 'start time'], ['fEnd', body.endTime, 'end time'], ['fRoom', body.room, 'room']].filter(([, v]) => !v);
+  if (missing.length) {
+    markInvalid(missing.map(([id]) => id));
+    return show($('formError'), `Please fill in: ${missing.map(([, , label]) => label).join(', ')}.`);
+  }
+  if (body.endTime <= body.startTime) { markInvalid(['fStart', 'fEnd']); return show($('formError'), 'End time must be after start time.'); }
+  const sem = state.semesters.find(s => s.id === body.semesterId);
+  if (sem && (body.examDate < sem.start_date || body.examDate > sem.end_date)) {
+    markInvalid(['fDate']);
+    return show($('formError'), `The date must fall within ${esc(sem.name)} (${esc(fmtDate(sem.start_date))} – ${esc(fmtDate(sem.end_date))}).`);
+  }
+  markInvalid([]);
+
+  $('fSubmit').disabled = true; $('fSubmit').textContent = 'Scheduling…';
+  const res = await request('POST', '/api/v1/exams', body);
+  $('fSubmit').disabled = false; $('fSubmit').textContent = 'Schedule exam';
+
+  if (res.status === 201) {
+    const e = res.data;
+    // Keep course/semester/room for the next booking; clear the slot so it isn't re-submitted by accident.
+    $('fDate').value = ''; $('fStart').value = ''; $('fEnd').value = '';
+    await loadExams({ highlight: [e.id], kind: 'new' });
+    const visible = state.exams.some(x => x.id === e.id);
+    show($('formSuccess'), `<b>Scheduled</b> ${esc(e.course_code)} on ${esc(fmtDate(e.exam_date))}, ${fmtRange(e)}, in ${esc(e.room)}.` +
+      (visible ? '' : ' It is hidden by the current table filters.'));
+    return;
+  }
+  if (res.status === 409 && Array.isArray(res.data?.conflicts)) {
+    markInvalid(['fDate', 'fStart', 'fEnd', 'fRoom']);
+    show($('formError'), conflictHtml(body, res.data.conflicts));
+    highlight(res.data.conflicts.map(c => c.id), 'conflict');
+    return;
+  }
+  // 400 (validation), 503 (room lock busy; retry), network errors…
+  show($('formError'), esc(errorText(res)) + (res.status === 503 ? ' Please try again in a moment.' : ''));
+}
+
+// Builds the red conflict message from the `conflicts` array in the 409 body (not from the
+// error string), so each clashing exam is listed with its course and time range.
+function conflictHtml(body, conflicts) {
+  const items = conflicts.map(c => `<li>
+      <span class="course-banner course-swatch ${bannerFor(c.course_code)}" style="height:20px;"></span>
+      <b>${esc(c.course_code)}</b> ${esc(c.course_title)}
+      <span class="time">${fmtRange(c)}</span>
+      <span class="muted">${esc(c.room)} · ${esc(c.semester_name)}</span>
+    </li>`).join('');
+  // Use the room's stored name ("Hall A"), not however it was typed ("  hall a ").
+  return `<b>Not scheduled: ${esc(conflicts[0].room)} is already booked on ${esc(fmtDate(body.examDate))} at an overlapping time</b>
+    (you asked for ${esc(body.startTime)}–${esc(body.endTime)}). It clashes with ${conflicts.length === 1 ? 'this exam' : `these ${conflicts.length} exams`}:
+    <ul class="conflict-list">${items}</ul>
+    Try another room, or move the exam so it starts at ${latestEnd(conflicts)} or later, or ends by ${earliestStart(conflicts)}.`;
+}
+// Back-to-back is allowed, so the clash-free edges are exactly these times.
+const latestEnd = (list) => fmtTime(list.reduce((max, c) => (c.end_time > max ? c.end_time : max), '00:00:00'));
+const earliestStart = (list) => fmtTime(list.reduce((min, c) => (c.start_time < min ? c.start_time : min), '23:59:59'));
+
+/* ============================================================
+   EXAMS TABLE
+   ============================================================ */
+
+function fillFilterSelects() {
+  $('filterSemester').innerHTML = '<option value="">All semesters</option>' +
+    state.semesters.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
+  $('filterCourse').innerHTML = '<option value="">All courses</option>' +
+    state.courses.map(c => `<option value="${c.id}">${esc(c.code)} — ${esc(c.title)}</option>`).join('');
+}
+
+// GET /api/v1/exams with the ?semesterId=&courseId= filters the API supports.
+async function loadExams({ highlight: ids = [], kind = null } = {}) {
+  const params = new URLSearchParams();
+  if ($('filterSemester').value) params.set('semesterId', $('filterSemester').value);
+  if ($('filterCourse').value) params.set('courseId', $('filterCourse').value);
+  const qs = params.toString();
+
+  const [filtered, all] = await Promise.all([
+    request('GET', '/api/v1/exams' + (qs ? '?' + qs : '')),
+    request('GET', '/api/v1/exams'),
+  ]);
+  if (filtered.status !== 200) {
+    $('examRows').innerHTML = '';
+    return show($('tableError'), esc(errorText(filtered)));
+  }
+  hide($('tableError'));
+  state.exams = filtered.data;
+  if (all.status === 200) state.allExams = all.data;
+  state.highlightIds = new Set(ids); state.highlightKind = kind;
+  renderExams();
+  refreshRoomSuggestions();
+  renderDashboard();
+  renderCourses();
+}
+
+function renderExams() {
+  const n = state.exams.length;
+  $('examCount').textContent = `${n} exam${n === 1 ? '' : 's'}`;
+  if (!n) {
+    $('examRows').innerHTML = '<tr><td colspan="6"><div class="empty-state">No exams match these filters.</div></td></tr>';
+    return;
+  }
+  const t = todayIso();
+  $('examRows').innerHTML = state.exams.map(e => {
+    const cls = state.highlightIds.has(e.id) ? (state.highlightKind === 'conflict' ? 'conflict-row' : 'new-row') : '';
+    const past = e.exam_date < t;
+    return `<tr id="exam-${e.id}" class="${cls}">
+      <td>${courseCellHtml(e.course_code, e.course_title)}</td>
+      <td>${esc(e.semester_name)}</td>
+      <td>${esc(fmtDate(e.exam_date))}${past ? ' <span class="muted" style="font-size:.74rem;">(past)</span>' : ''}</td>
+      <td>${fmtRange(e)}</td>
+      <td>${esc(e.room)}</td>
+      <td class="row-actions"><button class="btn btn-outline btn-sm" type="button" id="del-${e.id}" onclick="deleteExam(${e.id})"
+        aria-label="Delete ${esc(e.course_code)} exam on ${esc(fmtDate(e.exam_date))}">Delete</button></td>
+    </tr>`;
+  }).join('');
+  if (state.highlightKind === 'new') setTimeout(() => document.querySelectorAll('tr.new-row').forEach(r => r.classList.remove('new-row')), 2500);
+}
+
+function highlight(ids, kind) { state.highlightIds = new Set(ids); state.highlightKind = kind; renderExams(); }
+function clearHighlights() { if (state.highlightIds.size) highlight([], null); }
+
+// Delete takes two clicks (no confirm() popup): the first arms the button for 4 seconds.
+const deleteTimers = new Map();
+async function deleteExam(id) {
+  const btn = $('del-' + id);
+  const exam = state.exams.find(e => e.id === id);
+  if (!btn.classList.contains('confirming')) {
+    btn.classList.add('confirming'); btn.textContent = 'Confirm delete';
+    clearTimeout(deleteTimers.get(id));
+    deleteTimers.set(id, setTimeout(() => { if (btn.isConnected) { btn.classList.remove('confirming'); btn.textContent = 'Delete'; } }, 4000));
+    return;
+  }
+  clearTimeout(deleteTimers.get(id));
+  btn.disabled = true; btn.textContent = 'Deleting…';
+  hide($('tableSuccess')); hide($('tableError'));
+
+  const res = await request('DELETE', `/api/v1/exams/${id}`);
+  if (res.status === 204 || res.status === 404) {
+    await loadExams();
+    if (res.status === 204) {
+      show($('tableSuccess'), `<b>Deleted</b> the ${esc(exam.course_code)} exam on ${esc(fmtDate(exam.exam_date))} (${fmtRange(exam)}, ${esc(exam.room)}). The room slot is free again.`);
+      setTimeout(() => hide($('tableSuccess')), 5000);
+    } else {
+      show($('tableError'), 'That exam had already been deleted. The list has been refreshed.');
+    }
+    return;
+  }
+  btn.disabled = false; btn.classList.remove('confirming'); btn.textContent = 'Delete';
+  show($('tableError'), esc(errorText(res)));
+}
+
+/* ============================================================
+   DASHBOARD + COURSES
+   ============================================================ */
+
+function renderDashboard() {
+  const t = todayIso(), cur = currentSemester();
+  const inCurrent = state.allExams.filter(e => e.semester_id === cur?.id);
+  const upcoming = state.allExams.filter(e => e.exam_date >= t);
+  const next = upcoming[0];
+  const rooms = new Set(inCurrent.map(e => e.room.toLowerCase()));
+  $('dashStats').innerHTML = `
+    <div class="stat-card brand-fill"><div class="stat-label">EXAMS SCHEDULED</div>
+      <div class="stat-number">${inCurrent.length}</div><div class="stat-note">${esc(cur?.name ?? '')}</div></div>
+    <div class="stat-card plain"><div class="stat-label">ROOMS IN USE</div>
+      <div class="stat-number">${rooms.size}</div><div class="stat-note">${esc(cur?.name ?? '')}</div></div>
+    <div class="stat-card plain"><div class="stat-label">NEXT EXAM</div>
+      <div class="stat-number small">${next ? esc(next.course_code) + ' · ' + esc(fmtDate(next.exam_date)) : '—'}</div>
+      <div class="stat-note">${next ? `${fmtRange(next)} · ${esc(next.room)}` : 'nothing scheduled'}</div></div>`;
+  $('upcomingRows').innerHTML = upcoming.slice(0, 5).map(e => `<tr>
+      <td>${courseCellHtml(e.course_code, e.course_title)}</td><td>${esc(fmtDate(e.exam_date))}</td><td>${fmtRange(e)}</td><td>${esc(e.room)}</td></tr>`).join('')
+    || '<tr><td colspan="4"><div class="empty-state">No upcoming exams.</div></td></tr>';
+}
+
+function renderCourses() {
+  const counts = new Map();
+  state.allExams.forEach(e => counts.set(e.course_id, (counts.get(e.course_id) || 0) + 1));
+  $('courseRows').innerHTML = state.courses.map(c => `<tr>
+      <td>${courseCellHtml(c.code, c.title)}</td>
+      <td>${c.credit_hours}</td>
+      <td>${counts.get(c.id) ? `<span class="badge badge-blue">${counts.get(c.id)}</span>` : '<span class="muted">None</span>'}</td>
+      <td class="row-actions"><button class="btn btn-outline btn-sm" type="button" onclick="scheduleFor(${c.id})">Schedule exam</button></td>
+    </tr>`).join('');
+}
+
+function scheduleFor(courseId) {
+  showView('exams');
+  $('fCourse').value = String(courseId);
+  $('fDate').focus();
+}
+
+/* ============================================================
+   NAV — same behaviour as student-portal.html
+   ============================================================ */
+
+const titles = { dashboard: 'Dashboard', courses: 'Courses', exams: 'Exams' };
+
+function showView(name) {
+  if (!titles[name]) name = 'exams';
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  $('view-' + name).classList.add('active');
+  document.querySelectorAll('.nav-item[data-view]').forEach(n => n.classList.toggle('active', n.dataset.view === name));
+  $('breadcrumb').innerHTML = `<b>Home</b> &nbsp;›&nbsp; ${titles[name]}`;
+  if (location.hash !== '#' + name) history.replaceState(null, '', '#' + name);
+}
+
+function toggleSidebar() {
+  $('sidebar').classList.toggle('collapsed');
+  try { localStorage.setItem('sidebarCollapsed', $('sidebar').classList.contains('collapsed')); } catch (e) { /* storage blocked */ }
+}
+try { if (localStorage.getItem('sidebarCollapsed') === 'true') $('sidebar').classList.add('collapsed'); } catch (e) { /* storage blocked */ }
+
+/* ============================================================
+   STARTUP
+   ============================================================ */
+
+(async function init() {
+  // ⚠ The logged-in user will come from the Auth service. Until then, the fake admin's name.
+  const name = typeof FAKE !== 'undefined' ? FAKE.admin.name : 'Administrator';
+  $('topAvatar').textContent = initials(name);
+  $('topName').textContent = name;
+  showView(location.hash.slice(1) || 'exams');
+
+  const [coursesRes, semestersRes] = await Promise.all([request('GET', '/api/v1/courses'), request('GET', '/api/v1/semesters')]);
+  const failed = [coursesRes, semestersRes].find(r => r.status !== 200);
+  if (failed) {
+    $('examRows').innerHTML = '';
+    return show($('tableError'), esc(errorText(failed)));
+  }
+  state.courses = coursesRes.data.slice().sort((a, b) => a.code.localeCompare(b.code));
+  state.semesters = semestersRes.data.slice().sort((a, b) => a.start_date.localeCompare(b.start_date));
+
+  fillFormSelects();
+  fillFilterSelects();
+  $('fSemester').addEventListener('change', syncDateBounds);
+  $('examForm').addEventListener('submit', submitExam);
+  ['fCourse', 'fSemester', 'fDate', 'fStart', 'fEnd', 'fRoom'].forEach(id =>
+    $(id).addEventListener('input', () => { $(id).classList.remove('field-invalid'); $(id).removeAttribute('aria-invalid'); }));
+  $('filterSemester').addEventListener('change', () => loadExams());
+  $('filterCourse').addEventListener('change', () => loadExams());
+
+  await loadExams();
+})();
+
+/* ============================================================
+   REAL API — to switch from fake data:
+     1. Delete the "FAKE DATA + FAKE API" block near the top.
+     2. Un-comment this apiCall(). It returns { status, data } like the fake one,
+        so nothing else on the page changes.
+     3. Set GATEWAY_URL at the top if you're going through the gateway.
+
+   Endpoints this page uses:
+     exist today:  GET    /api/v1/courses
+                   GET    /api/v1/exams?semesterId=&courseId=
+                   POST   /api/v1/exams          (409 body: { error, conflicts: Exam[] })
+                   DELETE /api/v1/exams/:id      (204, no body)
+     ⚠ missing:    GET    /api/v1/semesters      ({ id, name, start_date, end_date }[])
+
+   async function apiCall(method, path, body) {
+     const headers = {};
+     if (body !== undefined) headers['Content-Type'] = 'application/json';
+     // Once the Auth service is ready:
+     // const token = localStorage.getItem('token');
+     // if (token) headers['Authorization'] = 'Bearer ' + token;
+     const res = await fetch(GATEWAY_URL + path, {
+       method,
+       headers,
+       body: body === undefined ? undefined : JSON.stringify(body),
+     });
+     // 204 No Content has no body; error responses are JSON { error }.
+     const data = res.status === 204 ? null : await res.json().catch(() => null);
+     return { status: res.status, data };
+   }
+   ============================================================ */
+</script>
+</body>
+</html>
