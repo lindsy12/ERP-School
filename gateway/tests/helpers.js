@@ -40,8 +40,8 @@ function closeServer(server) {
   return new Promise((resolve) => server.close(resolve));
 }
 
-function registryEntry(name, baseUrl, prefix, uiPrefix) {
-  return { name, baseUrl, prefix, uiPrefix, healthUrl: `${baseUrl}/health` };
+function registryEntry(name, baseUrl, prefix, uiPrefix, { inlineScripts = false } = {}) {
+  return { name, baseUrl, prefix, uiPrefix, inlineScripts, healthUrl: `${baseUrl}/health` };
 }
 
 // A fake auth-service /api/v1/auth/verify. `users` maps a token to the identity it belongs to;

@@ -55,13 +55,23 @@ function createApp({
   // Default helmet, minus upgrade-insecure-requests: over plain HTTP on a school network
   // (http://192.168.x.x:3000) it makes browsers ask for every script over HTTPS and pages break.
   // Put it back once the site is served over HTTPS.
-  app.use(
-    helmet({
-      contentSecurityPolicy: {
-        directives: { ...helmet.contentSecurityPolicy.getDefaultDirectives(), 'upgrade-insecure-requests': null },
-      },
-    }),
-  );
+  const cspDirectives = { ...helmet.contentSecurityPolicy.getDefaultDirectives(), 'upgrade-insecure-requests': null };
+  app.use(helmet({ contentSecurityPolicy: { directives: cspDirectives } }));
+  // Pages of services marked inlineScripts (config/services.js) get a policy that also allows
+  // inline scripts and event handlers; every other page keeps script-src 'self'.
+  const inlineScriptPrefixes = services.filter((s) => s.uiPrefix && s.inlineScripts).map((s) => s.uiPrefix);
+  const inlineScriptCsp = helmet.contentSecurityPolicy({
+    directives: {
+      ...cspDirectives,
+      'script-src': ["'self'", "'unsafe-inline'"],
+      'script-src-attr': ["'unsafe-inline'"],
+    },
+  });
+  app.use((req, res, next) => {
+    const underUi = (prefix) => req.path === prefix || req.path.startsWith(`${prefix}/`);
+    if (inlineScriptPrefixes.some(underUi)) return inlineScriptCsp(req, res, next);
+    return next();
+  });
   // CORS before authentication: browser preflight (OPTIONS) requests never carry a token.
   app.use(
     cors({
@@ -72,6 +82,8 @@ function createApp({
   );
   // The site's front door is the sign-in page.
   app.get('/', (req, res) => res.redirect(302, '/auth/'));
+  // Browsers ask for /favicon.ico on every page; there is none, and without a token it would be a 401.
+  app.get('/favicon.ico', (req, res) => res.status(204).end());
   // Page files (HTML/CSS/JS) don't use up the global limit: one page load is a dozen files, and a
   // whole school behind one IP would otherwise run out after a few clicks.
   app.use((req, res, next) => {

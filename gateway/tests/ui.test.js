@@ -4,18 +4,21 @@ const { startEchoService, registryEntry, startFakeAuth } = require('./helpers');
 
 let auth;
 let hr;
+let academic;
 let fakeAuth;
 let app;
 
 beforeAll(async () => {
   auth = await startEchoService('auth');
   hr = await startEchoService('hr');
+  academic = await startEchoService('academic');
   fakeAuth = await startFakeAuth();
   app = createApp({
     verifyUrl: fakeAuth.verifyUrl,
     services: [
       registryEntry('auth', auth.url, '/api/v1/auth', '/auth'),
       registryEntry('hr', hr.url, '/api/v1/hr', '/hr'),
+      registryEntry('academic', academic.url, '/api/v1/academic', '/academic', { inlineScripts: true }),
     ],
     rateLimitMax: 3,
     logWrite: () => {},
@@ -23,7 +26,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await Promise.all([auth.close(), hr.close(), fakeAuth.close()]);
+  await Promise.all([auth.close(), hr.close(), academic.close(), fakeAuth.close()]);
 });
 
 beforeEach(() => {
@@ -80,11 +83,30 @@ describe('web pages (uiPrefix)', () => {
   });
 });
 
+describe('favicon', () => {
+  it('answers 204 without a token instead of 401', async () => {
+    const res = await request(app).get('/favicon.ico');
+
+    expect(res.status).toBe(204);
+    expect(fakeAuth.calls).toHaveLength(0);
+  });
+});
+
 describe('security headers on pages', () => {
   it('scripts only from our own origin, and no forced HTTPS upgrade (the site runs on plain HTTP)', async () => {
     const csp = (await request(app).get('/auth/')).headers['content-security-policy'];
 
     expect(csp).toContain("script-src 'self'");
     expect(csp).not.toContain('upgrade-insecure-requests');
+  });
+
+  it('allows inline scripts only on pages of services marked inlineScripts', async () => {
+    const academicCsp = (await request(app).get('/academic/exams.html')).headers['content-security-policy'];
+    const hrCsp = (await request(app).get('/hr/')).headers['content-security-policy'];
+
+    expect(academicCsp).toContain("script-src 'self' 'unsafe-inline'");
+    expect(academicCsp).toContain("script-src-attr 'unsafe-inline'");
+    expect(hrCsp).toContain("script-src 'self';");
+    expect(hrCsp).toContain("script-src-attr 'none'");
   });
 });

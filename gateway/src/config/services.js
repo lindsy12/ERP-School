@@ -14,17 +14,20 @@
 //               requests under it are forwarded WITHOUT a token check, because a browser opening
 //               a page can't send one; the pages then call the API with the token themselves.
 //               So never serve anything but static files under a uiPrefix.
+//   inlineScripts - true if the service's pages use inline <script> blocks and onclick="..." handlers,
+//               which the gateway's Content-Security-Policy blocks everywhere else. Only academic's
+//               pages need it; new pages should load their scripts from files instead.
 //
 // To add a service: add its *_SERVICE_URL to .env.example and config/env.js, then one entry here.
 const { serviceUrls } = require('./env');
 
-function entry(name, baseUrl, prefix, uiPrefix) {
-  return { name, baseUrl, prefix, uiPrefix, healthUrl: `${baseUrl}/health` };
+function entry(name, baseUrl, prefix, uiPrefix, { inlineScripts = false } = {}) {
+  return { name, baseUrl, prefix, uiPrefix, inlineScripts, healthUrl: `${baseUrl}/health` };
 }
 
 module.exports = [
   entry('auth', serviceUrls.auth, '/api/v1/auth', '/auth'),
-  entry('academic', serviceUrls.academic, '/api/v1/academic', '/academic'),
+  entry('academic', serviceUrls.academic, '/api/v1/academic', '/academic', { inlineScripts: true }),
   entry('finance', serviceUrls.finance, '/api/v1/finance', '/finance'),
   entry('hr', serviceUrls.hr, '/api/v1/hr', '/hr'),
   entry('notification', serviceUrls.notification, '/api/v1/notifications', '/notifications'),

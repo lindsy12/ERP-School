@@ -64,6 +64,8 @@ send one. The pages then call the API with the token. So:
   To send users to sign in, link to `/auth/?next=<your page>`; `/auth/?school=<tenant id>` fills in the
   School ID (admins find that link on the Users page).
 - Page files don't count against the global rate limit (a page load is a dozen files).
+- Pages get a Content-Security-Policy that allows scripts from the site only: no inline `<script>` blocks and no `onclick="..."` attributes. Load scripts from files. The academic pages predate this and are marked `inlineScripts: true` in `gateway/src/config/services.js`, which allows inline scripts under `/academic/` only.
+- `GET /favicon.ico` answers `204` without a token, so browsers don't log a `401` on every page.
 
 ## Every other request
 
